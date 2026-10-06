@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,13 +7,13 @@ import { addExam, addTask, archiveTask, deleteExam, setTopicDone } from '../../d
 import { useData } from '../../data';
 import { totalMs } from '../../stats';
 import { categoryColors, font, radius, space, useTheme } from '../../theme';
-import { addDays, ago, dayKey, daysUntil, fmtDur, startOfDay } from '../../util';
-
-const QUICK = [['1 wk', 7], ['2 wk', 14], ['1 mo', 30], ['2 mo', 60]] as const;
+import { DatePicker } from '../../components/DatePicker';
+import { ago, daysUntil, fmtDate, fmtDur } from '../../util';
 
 export default function Study() {
   const t = useTheme(), { top } = useSafeAreaInsets();
-  const { tasks, sessions, exams, reload } = useData();
+  const { tasks, sessions, exams, cards, reload } = useData();
+  const dueCards = cards.filter((c) => c.due <= Date.now()).length;
   const subjects = tasks.filter((k) => !k.parent_id);
   const [open, setOpen] = useState<number | null>(null);
   const [newSub, setNewSub] = useState(''), [newTopic, setNewTopic] = useState('');
@@ -35,7 +36,7 @@ export default function Study() {
   const confirmDel = (name: string, fn: () => Promise<unknown>) =>
     Alert.alert(`Delete "${name}"?`, 'Past focus time stays in your stats.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => done(fn) }]);
 
-  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(ed) && !isNaN(new Date(ed.replace(/-/g, '/')).getTime());
+  const dateOk = ed !== '';
   const saveExam = async () => {
     if (!en.trim() || !dateOk || es == null) return;
     await done(() => addExam(en.trim(), ed, es));
@@ -47,6 +48,15 @@ export default function Study() {
   return (
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(6), gap: space(4) }} keyboardShouldPersistTaps="handled">
       <Txt v="h1" style={{ paddingHorizontal: space(4) }}>Study</Txt>
+
+      <Card style={[pad, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space(3) }]}>
+        <View style={{ flex: 1 }}>
+          <Txt v="label">Flashcards</Txt>
+          <Txt v="h3">{dueCards ? `${dueCards} due now` : 'Nothing due'} · {cards.length} total</Txt>
+        </View>
+        <Btn label={dueCards ? 'Review' : 'Open'} onPress={() => router.push(dueCards ? '/review' : '/cards')} />
+      </Card>
+      {dueCards > 0 && <Pressable onPress={() => router.push('/cards')} style={{ marginHorizontal: space(4), marginTop: -space(2) }}><Txt v="small" c={t.accentA}>Manage cards and decks</Txt></Pressable>}
 
       <View style={[pad, { gap: space(3) }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -64,7 +74,7 @@ export default function Study() {
                   <Txt v="h3">{e.name}</Txt>
                   <Txt v="h2" c={days < 0 ? t.muted : days <= 7 ? t.accentB : t.accentA}>{days < 0 ? 'passed' : days === 0 ? 'today' : `${days}d`}</Txt>
                 </View>
-                <Txt v="small">{sub?.name ?? 'Subject deleted'} · {e.date}</Txt>
+                <Txt v="small">{sub?.name ?? 'Subject deleted'} · {fmtDate(e.date)}</Txt>
                 {c.total > 0 ? (
                   <>
                     <View style={{ height: 8, borderRadius: 4, backgroundColor: t.surface2 }}>
@@ -135,13 +145,8 @@ export default function Study() {
           <Pressable style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(5), gap: space(3) }}>
             <Txt v="h2">New exam</Txt>
             <TextInput value={en} onChangeText={setEn} placeholder="Name (e.g. Physics midterm)" placeholderTextColor={t.muted} style={input} />
-            <TextInput value={ed} onChangeText={setEd} placeholder="Date YYYY-MM-DD" placeholderTextColor={t.muted} keyboardType="numbers-and-punctuation" style={input} />
-            <View style={{ flexDirection: 'row', gap: space(2) }}>
-              {QUICK.map(([l, n]) => (
-                <Pressable key={l} onPress={() => { tap(); setEd(dayKey(addDays(startOfDay(Date.now()), n))); }}
-                  style={{ flex: 1, minHeight: 44, borderRadius: radius.sm, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center' }}><Txt v="h3">{l}</Txt></Pressable>
-              ))}
-            </View>
+            <Txt v="small">Exam date{ed ? `: ${fmtDate(ed)}` : ''}</Txt>
+            <DatePicker value={ed} onChange={setEd} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
               {subjects.map((k) => (
                 <Pressable key={k.id} onPress={() => { tap(); setEs(k.id); }}
@@ -150,7 +155,6 @@ export default function Study() {
                 </Pressable>
               ))}
             </ScrollView>
-            {ed !== '' && !dateOk && <Txt v="small" c={t.accentB}>Use YYYY-MM-DD</Txt>}
             <Btn label="Add exam" onPress={saveExam} disabled={!en.trim() || !dateOk || es == null} />
           </Pressable>
         </Pressable>

@@ -5,11 +5,11 @@ export type Sensitivity = 'low' | 'medium' | 'high';
 export type ThemePref = 'auto' | 'dark' | 'light';
 export interface Settings {
   goalMin: number; sensitivity: Sensitivity; focusMin: number; breakMin: number; cycles: number;
-  touchToStart: boolean; theme: ThemePref; lastTaskId: number | null; loaded: boolean;
+  touchToStart: boolean; theme: ThemePref; lastTaskId: number | null; planStart: number; planEnd: number; planBlock: number; loaded: boolean;
 }
 const defaults: Settings = {
   goalMin: 240, sensitivity: 'medium', focusMin: 25, breakMin: 5, cycles: 4,
-  touchToStart: false, theme: 'auto', lastTaskId: null, loaded: false,
+  touchToStart: false, theme: 'auto', lastTaskId: null, planStart: 17, planEnd: 22, planBlock: 50, loaded: false,
 };
 interface Store extends Settings { load(): Promise<void>; set<K extends keyof Settings>(k: K, v: Settings[K]): void }
 

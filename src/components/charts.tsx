@@ -44,7 +44,7 @@ function Bar({ x, base, w, h, fill, p, i }: { x: number; base: number; w: number
   return <ARect x={x} width={w} rx={Math.min(6, w / 2)} fill={fill} animatedProps={props} />;
 }
 
-export function BarChart({ data, goal, height = 140 }: { data: { label: string; ms: number; hot?: boolean }[]; goal?: number; height?: number }) {
+export function BarChart({ data, goal, height = 140, onSelect }: { data: { label: string; ms: number; hot?: boolean }[]; goal?: number; height?: number; onSelect?: (i: number) => void }) {
   const t = useTheme(), [w, onLayout] = useWidth();
   const p = useDraw(data.map((d) => d.ms).join());
   const max = Math.max(goal ?? 0, ...data.map((d) => d.ms), 1), bw = w / data.length, plot = height - 22;
@@ -56,6 +56,7 @@ export function BarChart({ data, goal, height = 140 }: { data: { label: string; 
           <Bar key={i} i={i} p={p} x={i * bw + bw * 0.18} w={bw * 0.64} base={plot}
             h={Math.max(d.ms > 0 ? 4 : 2, (d.ms / max) * plot)} fill={d.ms === 0 ? t.surface2 : d.hot ? t.accentB : t.accentA} />
         ))}
+        {onSelect && data.map((_, i) => <Rect key={`h${i}`} x={i * bw} y={0} width={bw} height={height} fill="transparent" onPress={() => onSelect(i)} />)}
         {data.map((d, i) => (
           <SText key={`l${i}`} x={i * bw + bw / 2} y={height - 4} fontSize={11} fontFamily={font.body} fill={t.muted} textAnchor="middle">{d.label}</SText>
         ))}
@@ -79,7 +80,7 @@ export function HourChart({ hours }: { hours: number[] }) {
 }
 
 /** columns = weeks (oldest left), rows = weekday; intensity encodes focus time */
-export function Heatmap({ days, weeks = 15 }: { days: { key: string; ms: number }[]; weeks?: number }) {
+export function Heatmap({ days, weeks = 15, onSelect }: { days: { key: string; ms: number }[]; weeks?: number; onSelect?: (key: string) => void }) {
   const t = useTheme(), [w, onLayout] = useWidth();
   const p = useDraw(days.reduce((n, d) => n + d.ms, days.length));
   const fade = useAnimatedStyle(() => ({ opacity: p.value }));
@@ -92,7 +93,7 @@ export function Heatmap({ days, weeks = 15 }: { days: { key: string; ms: number 
         <Svg width={w} height={cell * 7}>
           {all.map((d, i) => d && (
             <Rect key={i} x={Math.floor(i / 7) * cell + 1.5} y={(i % 7) * cell + 1.5} width={cell - 3} height={cell - 3} rx={cell * 0.28}
-              fill={d.ms > 0 ? t.accentA : t.surface2} opacity={d.ms > 0 ? 0.25 + Math.ceil((d.ms / max) * 4) * 0.19 : 1} />
+              fill={d.ms > 0 ? t.accentA : t.surface2} opacity={d.ms > 0 ? 0.25 + Math.ceil((d.ms / max) * 4) * 0.19 : 1} onPress={onSelect ? () => onSelect(d.key) : undefined} />
           ))}
         </Svg>
       </Animated.View>

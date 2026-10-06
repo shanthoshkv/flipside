@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TaskPicker } from '../../components/TaskPicker';
-import { Card, Txt, tap, useWidth } from '../../components/ui';
-import { getDiary, plansForDate, saveDiary, setPlan } from '../../db';
+import { Stepper } from '../../components/controls';
+import { Btn, Card, Txt, tap, useWidth } from '../../components/ui';
+import { planDay, type PTopic } from '../../engine/planner';
+import { clearPlans, getDiary, plansForDate, saveDiary, setPlan } from '../../db';
 import { useData } from '../../data';
 import { actualSlots } from '../../stats';
 import { useSettings } from '../../store';
 import { font, radius, space, useTheme } from '../../theme';
-import { addDays, dayKey, keyToTs, pad2, startOfDay } from '../../util';
+import { addDays, dayKey, daysUntil, keyToTs, pad2, startOfDay } from '../../util';
 
 const ROW = 40;
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Plan() {
   const t = useTheme(), { top } = useSafeAreaInsets();
-  const { tasks, sessions } = useData();
+  const { tasks, sessions, exams } = useData();
+  const cfg = useSettings();
+  const [auto, setAuto] = useState(false);
   const lastTaskId = useSettings((s) => s.lastTaskId);
   const taskId = lastTaskId === 0 ? 0 : tasks.find((k) => k.id === lastTaskId)?.id ?? tasks.find((k) => !k.parent_id)?.id ?? 0;
   const today = startOfDay(Date.now());
@@ -62,6 +66,36 @@ export default function Plan() {
     Gesture.Tap().runOnJS(true).onEnd((e, ok) => ok && begin(e.x, e.y)),
   );
 
+  const reloadPlan = () => plansForDate(date).then((ps) => setPlanState(new Map(ps.map((p) => [p.slot, p.task_id]))));
+  const autoPlan = async (n: number) => {
+    const subjects = tasks.filter((k) => !k.parent_id);
+    if (!subjects.length) return Alert.alert('No subjects', 'Add subjects and topics in the Study tab first.');
+    const last = new Map<number, number>();
+    for (const s of sessions) last.set(s.task_id, Math.max(last.get(s.task_id) ?? 0, s.end_ts ?? s.heartbeat_ts ?? s.start_ts));
+    const topics: PTopic[] = subjects.flatMap((s) => {
+      const tp = tasks.filter((k) => k.parent_id === s.id);
+      return tp.length ? tp.map((k) => ({ id: k.id, subjectId: s.id, done: !!k.done, last: last.get(k.id) ?? 0 })) : [{ id: s.id, subjectId: s.id, done: false, last: last.get(s.id) ?? 0 }];
+    });
+    const exs = exams.map((e) => ({ subjectId: e.task_id, days: daysUntil(e.date) }));
+    const counts = new Map<number, number>();
+    const first = date === dayKey(today) ? 0 : Math.round((keyToTs(date) - today) / 86400000);
+    let added = 0;
+    for (let i = first; i < first + n; i++) {
+      if (i < 0) continue;
+      const key = dayKey(addDays(today, i)), existing = await plansForDate(key);
+      const nowSlot = i === 0 ? Math.floor((Date.now() - today) / 600000) + 1 : 0;
+      const placed = planDay(topics, exs, counts, new Set(existing.map((p) => p.slot)), {
+        startSlot: Math.max(cfg.planStart * 6, nowSlot), endSlot: cfg.planEnd * 6, blockSlots: Math.max(1, Math.round(cfg.planBlock / 10)),
+        budgetSlots: Math.max(0, Math.round(cfg.goalMin / 10) - existing.length),
+      });
+      for (const p of placed) await setPlan(p.taskId, key, p.slot, true);
+      added += placed.length;
+    }
+    await reloadPlan();
+    Alert.alert(added ? 'Planned' : 'Nothing to add', added ? `${added * 10} minutes scheduled. Existing dots were kept.` : 'No free time in your study window, or the daily goal is already planned.');
+  };
+  const clearDay = () => Alert.alert('Clear this day\'s plan?', undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: async () => { await clearPlans(date); await reloadPlan(); } }]);
+
   const saveLine = (i: number, v: string) => {
     const n = [...diary]; n[i] = v; setDiary(n);
   };
@@ -85,6 +119,23 @@ export default function Plan() {
       </ScrollView>
 
       <TaskPicker tasks={tasks} selected={taskId} onSelect={(id) => useSettings.getState().set('lastTaskId', id)} />
+
+      <Card style={{ marginHorizontal: space(4), gap: space(2) }}>
+        <Pressable onPress={() => { tap(); setAuto(!auto); }} style={{ minHeight: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Txt v="label">Auto-plan</Txt><Txt v="h3" c={t.accentA}>{auto ? 'Hide' : 'Set up'}</Txt>
+        </Pressable>
+        {auto && (
+          <View style={{ gap: space(2) }}>
+            <Txt v="small">Fills free slots with topics from your subjects: nearest exam first, subjects interleaved, up to your daily goal.</Txt>
+            <Stepper label="Window start" value={cfg.planStart} unit=":00" min={0} max={cfg.planEnd - 1} onChange={(v) => cfg.set('planStart', v)} />
+            <Stepper label="Window end" value={cfg.planEnd} unit=":00" min={cfg.planStart + 1} max={24} onChange={(v) => cfg.set('planEnd', v)} />
+            <Stepper label="Block length" value={cfg.planBlock} unit="m" min={20} max={120} step={10} onChange={(v) => cfg.set('planBlock', v)} />
+            <Btn label="Plan this day" onPress={() => autoPlan(1)} />
+            <Btn kind="ghost" label="Plan 7 days from here" onPress={() => autoPlan(7)} />
+            <Btn kind="danger" label="Clear this day" onPress={clearDay} />
+          </View>
+        )}
+      </Card>
 
       <Card style={{ marginHorizontal: space(4) }}>
         <View style={{ flexDirection: 'row', gap: space(4), marginBottom: space(3) }}>

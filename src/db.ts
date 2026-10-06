@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 export interface Task { id: number; name: string; category: string; color: string; created_at: number; archived: number; parent_id: number | null; done: number }
 export interface Session { id: number; task_id: number; start_ts: number; end_ts: number | null; heartbeat_ts: number | null; mode: string; quality: number | null; note: string }
+export interface Card { id: number; task_id: number; front: string; back: string; due: number; ease: number; interval: number; reps: number; lapses: number; created_at: number; last_review: number | null }
 export interface Exam { id: number; name: string; date: string; task_id: number }
 export interface Plan { id: number; task_id: number; date: string; slot: number }
 export interface Diary { date: string; l1: string; l2: string; l3: string }
@@ -21,6 +22,9 @@ const MIGRATIONS = [
    ALTER TABLE sessions ADD COLUMN quality INTEGER;
    ALTER TABLE sessions ADD COLUMN note TEXT NOT NULL DEFAULT '';
    CREATE TABLE exams(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, date TEXT NOT NULL, task_id INTEGER NOT NULL);`,
+  `CREATE TABLE cards(id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL DEFAULT 0, front TEXT NOT NULL, back TEXT NOT NULL, due INTEGER NOT NULL, ease REAL NOT NULL DEFAULT 2.5, interval REAL NOT NULL DEFAULT 0, reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, last_review INTEGER);
+   CREATE INDEX idx_cards_due ON cards(due);
+   CREATE TABLE reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, card_id INTEGER NOT NULL, ts INTEGER NOT NULL, grade INTEGER NOT NULL);`,
 ];
 
 export async function migrate() {
@@ -71,10 +75,32 @@ export const sessionsBetween = async (from: number, to: number) => (await db()).
 
 // plans
 export const plansForDate = async (date: string) => (await db()).getAllAsync<Plan>('SELECT * FROM plans WHERE date=?', date);
+export const clearPlans = async (date: string) => void (await (await db()).runAsync('DELETE FROM plans WHERE date=?', date));
 export async function setPlan(taskId: number, date: string, slot: number, on: boolean) {
   const d = await db();
   if (on) await d.runAsync('INSERT OR REPLACE INTO plans(task_id,date,slot) VALUES(?,?,?)', taskId, date, slot);
   else await d.runAsync('DELETE FROM plans WHERE date=? AND slot=?', date, slot);
+}
+
+// cards
+export const listCards = async () => (await db()).getAllAsync<Card>('SELECT * FROM cards ORDER BY id');
+export async function addCards(rows: { task_id: number; front: string; back: string }[]) {
+  const d = await db(), now = Date.now();
+  await d.withTransactionAsync(async () => {
+    for (const r of rows) await d.runAsync('INSERT INTO cards(task_id,front,back,due,created_at) VALUES(?,?,?,?,?)', r.task_id, r.front, r.back, now, now);
+  });
+}
+export const updateCard = async (id: number, taskId: number, front: string, back: string) =>
+  void (await (await db()).runAsync('UPDATE cards SET task_id=?, front=?, back=? WHERE id=?', taskId, front, back, id));
+export const deleteCard = async (id: number) => void (await (await db()).runAsync('DELETE FROM cards WHERE id=?', id));
+export async function saveReview(id: number, s: { due: number; ease: number; interval: number; reps: number; lapses: number }, grade: number, ts: number) {
+  const d = await db();
+  await d.runAsync('UPDATE cards SET due=?, ease=?, interval=?, reps=?, lapses=?, last_review=? WHERE id=?', s.due, s.ease, s.interval, s.reps, s.lapses, ts, id);
+  await d.runAsync('INSERT INTO reviews(card_id,ts,grade) VALUES(?,?,?)', id, ts, grade);
+}
+export async function reviewedSince(ts: number) {
+  const r = await (await db()).getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM reviews WHERE ts>=?', ts);
+  return r?.n ?? 0;
 }
 
 // diary
@@ -92,7 +118,7 @@ export const setSetting = async (k: string, v: string) =>
   void (await (await db()).runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', k, v));
 
 // export / import / reset
-const TABLES = ['tasks', 'sessions', 'plans', 'diary', 'settings', 'exams'] as const;
+const TABLES = ['tasks', 'sessions', 'plans', 'diary', 'settings', 'exams', 'cards', 'reviews'] as const;
 export async function exportAll() {
   const d = await db();
   const out: Record<string, unknown[]> = {};

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart, Heatmap, HourChart, Ring } from '../../components/charts';
 import { Segmented } from '../../components/controls';
+import { DayDetail } from '../../components/DayDetail';
 import { Card, CountUp, EmptyState, Txt, tap } from '../../components/ui';
 import type { Session, Task } from '../../db';
 import { useData } from '../../data';
@@ -10,7 +11,7 @@ import { rootOf } from '../../components/TaskPicker';
 import { bestDay, dailyTotals, hourDist, longestMs, perTask, sessionsIn, streaks, totalMs, WEEKDAY } from '../../stats';
 import { useSettings } from '../../store';
 import { font, radius, space, useTheme } from '../../theme';
-import { addDays, fmtDur, keyToTs, startOfDay } from '../../util';
+import { addDays, fmtDate, fmtDur, startOfDay } from '../../util';
 
 const hourLabel = (h: number) => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
 
@@ -39,6 +40,8 @@ export default function Stats() {
   const [scope, setScope] = useState<Scope>('all');
   const [range, setRange] = useState<Range>('7');
   const [pick, setPick] = useState<number | null>(null);
+  const [topic, setTopic] = useState<number | null>(null);
+  const [day, setDay] = useState<string | null>(null);
 
   // subjects that have sessions (0 = no task); topics roll up into their subject
   const ids = useMemo(() => [...new Set(sessions.map((s) => rootOf(tasks, s.task_id)))], [sessions, tasks]);
@@ -47,9 +50,10 @@ export default function Stats() {
   const colorOf = (id: number) => (id === 0 ? t.muted : known(id)?.color ?? t.accentA);
   const active = scope === 'task' ? (pick != null && ids.includes(pick) ? pick : ids[0] ?? 0) : null;
 
+  const topics = active == null ? [] : tasks.filter((k) => k.parent_id === active);
   const d = useMemo(() => {
     const now = Date.now(), tomorrow = addDays(startOfDay(now), 1);
-    const ss = active == null ? sessions : sessions.filter((s) => rootOf(tasks, s.task_id) === active);
+    const ss = active == null ? sessions : topic != null ? sessions.filter((s) => s.task_id === topic) : sessions.filter((s) => rootOf(tasks, s.task_id) === active);
     const days = dailyTotals(ss, now, 365);
     const from = range === 'all' ? 0 : addDays(startOfDay(now), -(Number(range) - 1));
     const inRange = sessionsIn(ss, from, tomorrow);
@@ -63,7 +67,7 @@ export default function Stats() {
       by: perTask(active == null ? sessions.map((s) => ({ ...s, task_id: rootOf(tasks, s.task_id) })) : ss, from, tomorrow),
       q: quality(ss, tasks, active == null),
     };
-  }, [sessions, tasks, active, range]);
+  }, [sessions, tasks, active, topic, range]);
 
   const pad = { marginHorizontal: space(4) };
   const byMax = d.by[0]?.[1] ?? 1;
@@ -84,11 +88,24 @@ export default function Stats() {
             {ids.map((id) => {
               const on = id === active;
               return (
-                <Pressable key={id} accessibilityLabel={`Task ${nameOf(id)}`} onPress={() => { tap(); setPick(id); }}
+                <Pressable key={id} accessibilityLabel={`Task ${nameOf(id)}`} onPress={() => { tap(); setPick(id); setTopic(null); }}
                   style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: space(4), borderRadius: radius.pill,
                     backgroundColor: on ? colorOf(id) : t.surface, borderWidth: 1, borderColor: on ? colorOf(id) : t.border }}>
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? '#1A1206' : colorOf(id) }} />
                   <Txt v="h3" c={on ? '#1A1206' : t.text}>{nameOf(id)}</Txt>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+        {scope === 'task' && active != null && topics.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
+            {[null, ...topics.map((k) => k.id)].map((id) => {
+              const on = id === topic;
+              return (
+                <Pressable key={id ?? 'all'} onPress={() => { tap(); setTopic(id); }}
+                  style={{ minHeight: 40, paddingHorizontal: space(4), borderRadius: radius.pill, justifyContent: 'center', backgroundColor: on ? colorOf(active) : t.surface2 }}>
+                  <Txt v="small" c={on ? '#1A1206' : t.text} style={{ fontFamily: font.bodyBold }}>{id == null ? 'All topics' : known(id)?.name}</Txt>
                 </Pressable>
               );
             })}
@@ -100,12 +117,12 @@ export default function Stats() {
       {sessions.length === 0 && <Card style={pad}><EmptyState title="No focus yet" hint="Flip your phone face-down on the Timer tab. Your first session shows up here." /></Card>}
 
       <Card i={0} style={[pad, { alignItems: 'center', gap: space(3) }]}>
-        <Txt v="label">{active == null ? 'Today vs goal' : `${nameOf(active)} today vs goal`}</Txt>
+        <Txt v="label">{active == null ? 'Today vs goal' : `${topic != null ? known(topic)?.name : nameOf(active)} today vs goal`}</Txt>
         <Ring progress={d.today / goal}>
           <CountUp value={d.today} format={fmtDur} style={{ fontFamily: font.headBold, fontSize: 32, color: t.text }} />
           <Txt v="small">of {fmtDur(goal)}</Txt>
         </Ring>
-        <Txt v="small">All-time {active == null ? '' : `on ${nameOf(active)} `}· {fmtDur(d.allTime)}</Txt>
+        <Txt v="small">All-time {active == null ? '' : `on ${topic != null ? known(topic)?.name : nameOf(active)} `}· {fmtDur(d.allTime)}</Txt>
       </Card>
 
       <View style={[pad, { flexDirection: 'row', flexWrap: 'wrap', gap: space(3) }]}>
@@ -115,13 +132,13 @@ export default function Stats() {
       </View>
 
       <Card i={4} style={pad}>
-        <Txt v="label" style={{ marginBottom: space(3) }}>Last 7 days</Txt>
-        <BarChart goal={active == null ? goal : undefined} data={d.week.map((x, i) => ({ label: WEEKDAY[new Date(x.ts).getDay()], ms: x.ms, hot: i === 6 }))} />
+        <Txt v="label" style={{ marginBottom: space(3) }}>Last 7 days · tap a day</Txt>
+        <BarChart onSelect={(i) => setDay(d.week[i].key)} goal={active == null ? goal : undefined} data={d.week.map((x, i) => ({ label: WEEKDAY[new Date(x.ts).getDay()], ms: x.ms, hot: i === 6 }))} />
       </Card>
 
       <Card i={5} style={pad}>
-        <Txt v="label" style={{ marginBottom: space(3) }}>15 weeks</Txt>
-        <Heatmap days={d.heat} />
+        <Txt v="label" style={{ marginBottom: space(3) }}>15 weeks · tap a day</Txt>
+        <Heatmap days={d.heat} onSelect={setDay} />
       </Card>
 
       <Card i={6} style={pad}>
@@ -138,7 +155,7 @@ export default function Stats() {
         </Card>
       )}
 
-      {(
+      {topic == null && (
         <Card i={8} style={[pad, { gap: space(3) }]}>
           <Txt v="label">{active == null ? 'By subject' : 'By topic'} · {range === 'all' ? 'all time' : `last ${range} days`}</Txt>
           {d.by.length === 0 && <Txt v="small">Nothing in this range.</Txt>}
@@ -155,7 +172,8 @@ export default function Stats() {
         </Card>
       )}
 
-      {d.best && <Txt v="small" style={{ paddingHorizontal: space(4) }}>Best day: {new Date(keyToTs(d.best.key)).toDateString()} · {fmtDur(d.best.ms)}</Txt>}
+      {d.best && <Txt v="small" style={{ paddingHorizontal: space(4) }}>Best day: {fmtDate(d.best.key)} · {fmtDur(d.best.ms)}</Txt>}
+      <DayDetail day={day} sessions={d.ss} tasks={tasks} onClose={() => setDay(null)} />
     </ScrollView>
   );
 }

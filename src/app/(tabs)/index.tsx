@@ -24,7 +24,8 @@ function PulseDot() {
 
 export default function TimerScreen() {
   const t = useTheme(), { top } = useSafeAreaInsets();
-  const { tasks, sessions, exams } = useData();
+  const { tasks, sessions, exams, cards } = useData();
+  const dueCards = cards.filter((c) => c.due <= Date.now()).length;
   const f = useFlip();
   const { lastTaskId, focusMin, touchToStart } = useSettings();
   const want = f.taskId ?? lastTaskId;
@@ -81,6 +82,13 @@ export default function TimerScreen() {
         <Card i={1} style={{ marginHorizontal: space(4), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View><Txt v="label">Today</Txt><CountUp value={today + live} format={fmtDur} style={{ fontFamily: font.headBold, fontSize: 28, color: t.text }} /></View>
         </Card>
+
+        {dueCards > 0 && (
+          <Card i={2} style={{ marginHorizontal: space(4), flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View><Txt v="label">Flashcards</Txt><Txt v="h3">{dueCards} due</Txt></View>
+            <Btn label="Review" onPress={() => router.push('/review')} />
+          </Card>
+        )}
 
         {next && (
           <Card i={2} style={{ marginHorizontal: space(4), gap: 6 }}>

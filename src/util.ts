@@ -18,3 +18,5 @@ export const fmtDur = (ms: number) => {
   const m = Math.round(ms / 60000);
   return m >= 60 ? `${Math.floor(m / 60)}h ${pad2(m % 60)}m` : `${m}m`;
 };
+export const fmtDate = (key: string) => key.split('-').reverse().join('-');
+export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
