@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlipIllustration } from '../../components/FlipIllustration';
+import { AmbientPicker } from '../../components/AmbientPicker';
 import { Reflect } from '../../components/Reflect';
 import { TaskPicker } from '../../components/TaskPicker';
 import { router } from 'expo-router';
@@ -64,6 +65,11 @@ export default function TimerScreen() {
         <View style={{ paddingHorizontal: space(4) }}>
           <Segmented disabled={f.status !== 'IDLE'} value={f.mode} onChange={f.setMode}
             options={[{ v: 'stopwatch', label: 'Stopwatch' }, { v: 'pomodoro', label: 'Pomodoro' }]} />
+        </View>
+
+        <View style={{ paddingHorizontal: space(4), gap: 6 }}>
+          <Txt v="label">Focus sound</Txt>
+          <AmbientPicker />
         </View>
 
         <View style={{ alignItems: 'center' }}>

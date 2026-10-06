@@ -34,7 +34,9 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-sharing',
     ['expo-splash-screen', { backgroundColor: '#0B0B10', image: './assets/images/splash-icon.png', imageWidth: 160 }],
-    ['expo-notifications', { color: '#FFB547' }],
+    ['expo-notifications', { color: '#FFB547', icon: './assets/images/notification-icon.png' }],
+    ['expo-audio', { microphonePermission: false, recordAudioAndroid: false }],
+    './plugins/withForegroundService',
     [
       'react-native-android-widget',
       {

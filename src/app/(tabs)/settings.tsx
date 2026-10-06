@@ -3,7 +3,9 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Alert, ScrollView, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AmbientPicker } from '../../components/AmbientPicker';
 import { Segmented, Stepper } from '../../components/controls';
+import { previewAmbient, setAmbientVolume } from '../../engine/ambient';
 import { Btn, Card, Txt } from '../../components/ui';
 import { exportAll, importAll, resetAll } from '../../db';
 import { useData } from '../../data';
@@ -64,6 +66,21 @@ export default function Settings() {
         <Stepper label="Focus" value={s.focusMin} unit="m" min={5} max={90} step={5} onChange={(v) => set('focusMin', v)} />
         <Stepper label="Break" value={s.breakMin} unit="m" min={1} max={30} onChange={(v) => set('breakMin', v)} />
         <Stepper label="Cycles" value={s.cycles} min={1} max={12} onChange={(v) => set('cycles', v)} />
+      </Card>
+
+      <Card i={3} style={pad}>
+        <Txt v="label">Focus sound</Txt>
+        <AmbientPicker />
+        <Stepper label="Volume" value={s.ambientVolume} unit="%" min={10} max={100} step={10}
+          onChange={(v) => { s.set('ambientVolume', v); setAmbientVolume(v); previewAmbient(s.ambient, v); }} />
+        <Txt v="small">Plays during focus, pauses on breaks, mixes with your music. Generated on the device, no internet.</Txt>
+      </Card>
+
+      <Card i={3} style={pad}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}><Txt>Keep running in background</Txt><Txt v="small">Shows a notification while armed or running so flip detection survives switching apps.</Txt></View>
+          <Switch value={s.bgService} onValueChange={(v) => s.set('bgService', v)} trackColor={{ true: t.accentA, false: t.surface2 }} thumbColor="#fff" />
+        </View>
       </Card>
 
       <Card i={3} style={pad}>

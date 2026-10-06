@@ -7,7 +7,10 @@ import { create } from 'zustand';
 import { closeSession, deleteSession, heartbeat, openSession } from '../db';
 import { useData } from '../data';
 import { useSettings } from '../store';
+import { fmtDur } from '../util';
 import { refreshWidgets } from '../widgets/refresh';
+import { pauseAmbient, playAmbient, stopAmbient } from './ambient';
+import { startBackground, stopBackground } from './background';
 import { Detector, THRESH } from './detect';
 
 export type Status = 'IDLE' | 'ARMED' | 'RUNNING';
@@ -40,6 +43,13 @@ function listen(get: () => Flip) {
     else if (ev === 'stop' && s.status === 'RUNNING' && s.phase === 'focus') s.end();
   });
 }
+
+const describe = () => {
+  const s = useFlip.getState();
+  if (s.status !== 'RUNNING') return 'Flip your phone face-down to start';
+  return s.phase === 'break' ? 'On a break' : `Focusing · ${fmtDur(Date.now() - s.phaseStart)}`;
+};
+const ambientOn = () => { const c = useSettings.getState(); playAmbient(c.ambient, c.ambientVolume); };
 
 function stopTimers() {
   sub?.remove(); sub = null;
@@ -79,11 +89,13 @@ export const useFlip = create<Flip>((set, get) => ({
     useSettings.getState().set('lastTaskId', taskId);
     activateKeepAwakeAsync(KEEP).catch(() => {});
     listen(get);
+    Notifications.requestPermissionsAsync().catch(() => {});
+    startBackground(describe);
   },
 
   cancel() {
     if (get().status !== 'ARMED') return;
-    stopTimers(); deactivateKeepAwake(KEEP);
+    stopTimers(); deactivateKeepAwake(KEEP); stopBackground();
     set({ status: 'IDLE' });
   },
 
@@ -94,6 +106,7 @@ export const useFlip = create<Flip>((set, get) => ({
     const id = await openSession(s.taskId, s.mode, now);
     set({ status: 'RUNNING', reflectId: null, sessionId: id, startTs: now, phase: 'focus', cycle: 1, phaseStart: now, now });
     Vibration.vibrate(60);
+    ambientOn();
     if (s.mode === 'pomodoro') schedulePomodoro(cfg.focusMin, cfg.breakMin, cfg.cycles);
     listen(get);
     beat = setInterval(() => { const sid = get().sessionId; if (sid != null) heartbeat(sid, Date.now()); }, 15000);
@@ -108,7 +121,7 @@ export const useFlip = create<Flip>((set, get) => ({
     const s = get();
     if (s.status !== 'RUNNING') return;
     const now = Date.now();
-    stopTimers(); deactivateKeepAwake(KEEP);
+    stopTimers(); deactivateKeepAwake(KEEP); stopBackground(); stopAmbient();
     Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
     set({ status: 'IDLE', sessionId: null });
     if (s.sessionId != null) {
@@ -141,11 +154,13 @@ async function step(t: number) {
       await useFlip.getState().end();
       return;
     }
+    pauseAmbient();
     useFlip.setState({ phase: 'break', phaseStart: edge, sessionId: null });
     useData.getState().reload(); refreshWidgets();
   } else {
     const id = await openSession(g.taskId!, 'pomodoro', edge);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    ambientOn();
     useFlip.setState({ phase: 'focus', cycle: g.cycle + 1, phaseStart: edge, sessionId: id });
     det.reset();
   }

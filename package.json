@@ -7,6 +7,8 @@
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~57.0.21",
     "expo": "~57.0.26",
+    "expo-asset": "~57.0.18",
+    "expo-audio": "~57.0.5",
     "expo-constants": "~57.0.20",
     "expo-device": "~57.0.2",
     "expo-document-picker": "~57.0.3",
@@ -32,6 +34,7 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-android-widget": "^0.22.1",
+    "react-native-background-actions": "^4.1.0",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
@@ -55,5 +58,14 @@
     "lint": "expo lint",
     "check": "node --experimental-strip-types scripts/check.ts"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-background-actions"
+        ]
+      }
+    }
+  }
 }
