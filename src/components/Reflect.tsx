@@ -3,6 +3,7 @@ import { Modal, Pressable, TextInput, View } from 'react-native';
 import { rateSession } from '../db';
 import { useData } from '../data';
 import { useFlip } from '../engine/flip';
+import { fmtDur } from '../util';
 import { font, radius, space, useTheme } from '../theme';
 import { Btn, Txt, tap } from './ui';
 
@@ -12,7 +13,9 @@ const FACES = ['Rough', 'Meh', 'Okay', 'Good', 'Deep'];
 export function Reflect() {
   const t = useTheme();
   const id = useFlip((s) => s.reflectId), idle = useFlip((s) => s.status === 'IDLE');
+  const run = useFlip((s) => s.lastRun);
   const [q, setQ] = useState<number | null>(null), [note, setNote] = useState('');
+  const breakMin = run ? Math.max(5, Math.min(25, Math.round(run.ms / 60000 / 5))) : 0;
   const close = async (save: boolean) => {
     if (save && id != null && (q != null || note.trim())) { await rateSession(id, q, note.trim()); await useData.getState().reload(); }
     useFlip.setState({ reflectId: null }); setQ(null); setNote('');
@@ -22,6 +25,7 @@ export function Reflect() {
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }}>
         <View style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(5), gap: space(4) }}>
           <Txt v="h2">How was that focus?</Txt>
+          {run && <Txt v="small">You focused for {fmtDur(run.ms)}.{run.mode === 'flowtime' ? ` Suggested break: ${breakMin} min.` : ''}</Txt>}
           <View style={{ flexDirection: 'row', gap: space(2) }}>
             {FACES.map((f, i) => {
               const on = q === i + 1;

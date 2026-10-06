@@ -44,12 +44,13 @@ function Bar({ x, base, w, h, fill, p, i }: { x: number; base: number; w: number
   return <ARect x={x} width={w} rx={Math.min(6, w / 2)} fill={fill} animatedProps={props} />;
 }
 
-export function BarChart({ data, goal, height = 140, onSelect }: { data: { label: string; ms: number; hot?: boolean }[]; goal?: number; height?: number; onSelect?: (i: number) => void }) {
+export function BarChart({ data, goal, height = 140, onSelect, unit }: { data: { label: string; ms: number; hot?: boolean }[]; goal?: number; height?: number; onSelect?: (i: number) => void; unit?: string }) {
   const t = useTheme(), [w, onLayout] = useWidth();
   const p = useDraw(data.map((d) => d.ms).join());
   const max = Math.max(goal ?? 0, ...data.map((d) => d.ms), 1), bw = w / data.length, plot = height - 22;
+  const summary = data.map((d) => (unit ? `${d.label}: ${d.ms} ${unit}` : `${d.label} ${Math.round(d.ms / 60000)} minutes`)).join(', ');
   return (
-    <View onLayout={onLayout}>
+    <View onLayout={onLayout} accessible accessibilityRole="image" accessibilityLabel={unit ? `Chart: ${summary}` : `Focus per day: ${summary}`}>
       <Svg width={w} height={height}>
         {goal ? <Rect x={0} y={plot - (goal / max) * plot} width={w} height={1} fill={t.muted} opacity={0.35} /> : null}
         {data.map((d, i) => (
@@ -69,8 +70,9 @@ export function HourChart({ hours }: { hours: number[] }) {
   const t = useTheme(), [w, onLayout] = useWidth();
   const p = useDraw(hours.join());
   const max = Math.max(...hours, 1), bw = w / 24, H = 100;
+  const peak = hours.indexOf(Math.max(...hours));
   return (
-    <View onLayout={onLayout}>
+    <View onLayout={onLayout} accessible accessibilityRole="image" accessibilityLabel={hours.some((h) => h > 0) ? `Focus by hour of day. Most focus around ${peak}:00` : 'Focus by hour of day. No data yet'}>
       <Svg width={w} height={H + 18}>
         {hours.map((v, i) => <Bar key={i} i={i} p={p} x={i * bw + 1.5} w={bw - 3} base={H} h={Math.max(2, (v / max) * H)} fill={v === 0 ? t.surface2 : t.accentA} />)}
         {[0, 6, 12, 18].map((hr) => <SText key={hr} x={hr * bw} y={H + 14} fontSize={10} fontFamily={font.body} fill={t.muted}>{hr}h</SText>)}

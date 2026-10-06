@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
+import { Onboarding } from '../components/Onboarding';
 import { initDb } from '../db';
 import { useData } from '../data';
 import { useSettings } from '../store';
@@ -24,12 +25,14 @@ export default function Root() {
   const [fontsOk] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold });
   const [ready, setReady] = useState(false);
   const t = useTheme();
+  const onboarded = useSettings((s) => s.onboarded);
 
   useEffect(() => {
     (async () => {
       await initDb();
       await useSettings.getState().load();
       await useData.getState().reload();
+      if (!useSettings.getState().onboarded && useData.getState().tasks.length > 0) useSettings.getState().set('onboarded', true);
       if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('default', { name: 'Timer', importance: Notifications.AndroidImportance.HIGH }).catch(() => {});
       setReady(true);
       refreshWidgets();
@@ -49,6 +52,7 @@ export default function Root() {
       <StatusBar style={t.isDark ? 'light' : 'dark'} />
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }} />
+        {!onboarded && <Onboarding />}
       </View>
     </GestureHandlerRootView>
   );

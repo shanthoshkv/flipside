@@ -20,3 +20,5 @@ export const fmtDur = (ms: number) => {
 };
 export const fmtDate = (key: string) => key.split('-').reverse().join('-');
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** Monday 00:00 of the week containing ts */
+export const startOfWeek = (ts: number) => { const d = startOfDay(ts); const dow = (new Date(d).getDay() + 6) % 7; return addDays(d, -dow); };

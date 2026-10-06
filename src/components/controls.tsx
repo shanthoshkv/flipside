@@ -14,7 +14,7 @@ export function Segmented<T extends string>({ options, value, onChange, disabled
           <Pressable key={o.v} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: on }}
             onPress={() => { tap(); onChange(o.v); }}
             style={{ flex: 1, minHeight: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.surface : 'transparent' }}>
-            <Txt v="h3" c={on ? t.accentA : t.muted}>{o.label}</Txt>
+            <Txt v="h3" c={on ? t.accentText : t.muted}>{o.label}</Txt>
           </Pressable>
         );
       })}

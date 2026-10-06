@@ -1,4 +1,4 @@
-import { addDays, DAY, dayKey, startOfDay } from './util.ts';
+import { addDays, DAY, dayKey, startOfDay, startOfWeek } from './util.ts';
 
 export interface Seg { task_id: number; start_ts: number; end_ts: number | null; heartbeat_ts: number | null }
 const endOf = (s: Seg) => s.end_ts ?? s.heartbeat_ts ?? s.start_ts;
@@ -33,14 +33,21 @@ export function perTask(ss: Seg[], from: number, to: number) {
   return [...m].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 }
 
-/** days = oldest-first daily totals ending today. Today with no focus yet doesn't break the current streak. */
-export function streaks(days: { ms: number }[]) {
+/**
+ * days = oldest-first daily totals ending today. Today with no focus yet never breaks the streak.
+ * With `rest`, one zero day per Monday-Sunday week is forgiven (it neither adds to nor breaks the streak).
+ */
+export function streaks(days: { ms: number; ts?: number }[], rest = false) {
   let best = 0, run = 0;
-  for (const d of days) { run = d.ms > 0 ? run + 1 : 0; best = Math.max(best, run); }
-  let cur = 0, i = days.length - 1;
-  if (i >= 0 && days[i].ms === 0) i--;
-  for (; i >= 0 && days[i].ms > 0; i--) cur++;
-  return { current: cur, best };
+  const used = new Set<number>();
+  days.forEach((d, i) => {
+    if (d.ms > 0) run++;
+    else if (i === days.length - 1) return;
+    else if (rest && d.ts != null && !used.has(startOfWeek(d.ts))) used.add(startOfWeek(d.ts));
+    else run = 0;
+    best = Math.max(best, run);
+  });
+  return { current: run, best };
 }
 
 export const bestDay = (days: { key: string; ms: number }[]) =>

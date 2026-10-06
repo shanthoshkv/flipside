@@ -122,7 +122,7 @@ export default function Plan() {
 
       <Card style={{ marginHorizontal: space(4), gap: space(2) }}>
         <Pressable onPress={() => { tap(); setAuto(!auto); }} style={{ minHeight: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Txt v="label">Auto-plan</Txt><Txt v="h3" c={t.accentA}>{auto ? 'Hide' : 'Set up'}</Txt>
+          <Txt v="label">Auto-plan</Txt><Txt v="h3" c={t.accentText}>{auto ? 'Hide' : 'Set up'}</Txt>
         </Pressable>
         {auto && (
           <View style={{ gap: space(2) }}>

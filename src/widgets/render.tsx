@@ -15,7 +15,7 @@ async function snapshot() {
   const task = lastId === 0 ? null : tasks.find((t) => t.id === lastId) ?? tasks[0] ?? null;
   const all = dailyTotals(ss, now, 60);
   return {
-    todayMs: days[6].ms, goalMs: goalMin * 60000, streak: streaks(all).current, days, task,
+    todayMs: days[6].ms, goalMs: goalMin * 60000, streak: streaks(all, st.restDay ? JSON.parse(st.restDay) : true).current, days, task,
     taskMs: task ? totalMs(ss.filter((s) => s.task_id === task.id), addDays(startOfDay(now), -6), now + 86400000) : 0,
   };
 }

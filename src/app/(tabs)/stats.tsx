@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart, Heatmap, HourChart, Ring } from '../../components/charts';
 import { Segmented } from '../../components/controls';
+import { DatePicker } from '../../components/DatePicker';
+import { GoalsCard, WeeklyReviewCard } from '../../components/WeekCards';
 import { DayDetail } from '../../components/DayDetail';
-import { Card, CountUp, EmptyState, Txt, tap } from '../../components/ui';
+import { Btn, Card, CountUp, EmptyState, Txt, tap } from '../../components/ui';
 import type { Session, Task } from '../../db';
 import { useData } from '../../data';
 import { rootOf } from '../../components/TaskPicker';
@@ -37,11 +39,13 @@ export default function Stats() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { sessions, tasks } = useData();
   const goal = useSettings((s) => s.goalMin) * 60000;
+  const restDay = useSettings((s) => s.restDay);
   const [scope, setScope] = useState<Scope>('all');
   const [range, setRange] = useState<Range>('7');
   const [pick, setPick] = useState<number | null>(null);
   const [topic, setTopic] = useState<number | null>(null);
   const [day, setDay] = useState<string | null>(null);
+  const [pickOpen, setPickOpen] = useState(false);
 
   // subjects that have sessions (0 = no task); topics roll up into their subject
   const ids = useMemo(() => [...new Set(sessions.map((s) => rootOf(tasks, s.task_id)))], [sessions, tasks]);
@@ -61,13 +65,13 @@ export default function Stats() {
     const activeDays = days.filter((x) => x.ts >= from && x.ms > 0).length;
     return {
       ss, days, today: days[364].ms, week: days.slice(-7), heat: days.slice(-105),
-      streak: streaks(days), best: bestDay(days), hours: hourDist(ss),
+      streak: streaks(days, restDay), best: bestDay(days), hours: hourDist(ss),
       total, count: inRange.length, longest: longestMs(inRange), activeDays, avg: activeDays ? total / activeDays : 0,
       allTime: totalMs(ss, 0, Infinity),
       by: perTask(active == null ? sessions.map((s) => ({ ...s, task_id: rootOf(tasks, s.task_id) })) : ss, from, tomorrow),
       q: quality(ss, tasks, active == null),
     };
-  }, [sessions, tasks, active, topic, range]);
+  }, [sessions, tasks, active, topic, range, restDay]);
 
   const pad = { marginHorizontal: space(4) };
   const byMax = d.by[0]?.[1] ?? 1;
@@ -79,6 +83,9 @@ export default function Stats() {
   return (
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(6), gap: space(4) }}>
       <Txt v="h1" style={{ paddingHorizontal: space(4) }}>Stats</Txt>
+
+      {scope === 'all' && <WeeklyReviewCard />}
+      {scope === 'all' && <GoalsCard />}
 
       <View style={[pad, { gap: space(3) }]}>
         <Segmented<Scope> value={scope} onChange={setScope} options={[{ v: 'all', label: 'Overall' }, { v: 'task', label: 'By task' }]} />
@@ -131,6 +138,8 @@ export default function Stats() {
         ))}
       </View>
 
+      <View style={pad}><Btn kind="ghost" label="Open any day" onPress={() => setPickOpen(true)} /></View>
+
       <Card i={4} style={pad}>
         <Txt v="label" style={{ marginBottom: space(3) }}>Last 7 days · tap a day</Txt>
         <BarChart onSelect={(i) => setDay(d.week[i].key)} goal={active == null ? goal : undefined} data={d.week.map((x, i) => ({ label: WEEKDAY[new Date(x.ts).getDay()], ms: x.ms, hot: i === 6 }))} />
@@ -173,6 +182,15 @@ export default function Stats() {
       )}
 
       {d.best && <Txt v="small" style={{ paddingHorizontal: space(4) }}>Best day: {fmtDate(d.best.key)} · {fmtDur(d.best.ms)}</Txt>}
+      <Modal transparent animationType="fade" visible={pickOpen} onRequestClose={() => setPickOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }} onPress={() => setPickOpen(false)}>
+          <Pressable style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(4), gap: space(3) }}>
+            <Txt v="h2">Pick a day</Txt>
+            <DatePicker allowPast value={day ?? ''} onChange={(k) => { setPickOpen(false); setDay(k); }} />
+            <Btn kind="ghost" label="Close" onPress={() => setPickOpen(false)} />
+          </Pressable>
+        </Pressable>
+      </Modal>
       <DayDetail day={day} sessions={d.ss} tasks={tasks} onClose={() => setDay(null)} />
     </ScrollView>
   );

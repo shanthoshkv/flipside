@@ -32,7 +32,7 @@ export function Btn({ label, onPress, kind = 'primary', style, disabled }: {
 }) {
   const t = useTheme();
   const inner = (
-    <Text style={{ fontFamily: font.head, fontSize: 16, color: kind === 'primary' ? '#1A1206' : kind === 'danger' ? t.accentB : t.text }}>{label}</Text>
+    <Text style={{ fontFamily: font.head, fontSize: 16, color: kind === 'primary' ? '#1A1206' : kind === 'danger' ? t.danger : t.text }}>{label}</Text>
   );
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled}

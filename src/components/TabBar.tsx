@@ -33,7 +33,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           <LinearGradient colors={[`${t.accentA}33`, `${t.accentB}1A`]} style={{ flex: 1, margin: 4, borderRadius: radius.md }} />
         </Animated.View>
         {state.routes.map((r, i) => {
-          const on = state.index === i, c = on ? t.accentA : t.muted;
+          const on = state.index === i, c = on ? t.accentText : t.muted;
           return (
             <Pressable key={r.key} accessibilityRole="tab" accessibilityLabel={LABEL[r.name]} accessibilityState={{ selected: on }}
               onPress={() => { tap(); if (!on) navigation.navigate(r.name); }}

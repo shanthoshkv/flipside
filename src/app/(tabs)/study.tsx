@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Btn, Card, EmptyState, Txt, tap } from '../../components/ui';
-import { addExam, addTask, archiveTask, deleteExam, setTopicDone } from '../../db';
+import { addExam, addTask, archiveTask, deleteExam, setTopicDone, setWeeklyGoal } from '../../db';
+import { Stepper } from '../../components/controls';
 import { useData } from '../../data';
 import { totalMs } from '../../stats';
 import { categoryColors, font, radius, space, useTheme } from '../../theme';
@@ -56,7 +57,7 @@ export default function Study() {
         </View>
         <Btn label={dueCards ? 'Review' : 'Open'} onPress={() => router.push(dueCards ? '/review' : '/cards')} />
       </Card>
-      {dueCards > 0 && <Pressable onPress={() => router.push('/cards')} style={{ marginHorizontal: space(4), marginTop: -space(2) }}><Txt v="small" c={t.accentA}>Manage cards and decks</Txt></Pressable>}
+      {dueCards > 0 && <Pressable onPress={() => router.push('/cards')} style={{ marginHorizontal: space(4), marginTop: -space(2) }}><Txt v="small" c={t.accentText}>Manage cards and decks</Txt></Pressable>}
 
       <View style={[pad, { gap: space(3) }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -72,7 +73,7 @@ export default function Study() {
               <Card i={i} style={{ gap: 8 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <Txt v="h3">{e.name}</Txt>
-                  <Txt v="h2" c={days < 0 ? t.muted : days <= 7 ? t.accentB : t.accentA}>{days < 0 ? 'passed' : days === 0 ? 'today' : `${days}d`}</Txt>
+                  <Txt v="h2" c={days < 0 ? t.muted : days <= 7 ? t.danger : t.accentText}>{days < 0 ? 'passed' : days === 0 ? 'today' : `${days}d`}</Txt>
                 </View>
                 <Txt v="small">{sub?.name ?? 'Subject deleted'} · {fmtDate(e.date)}</Txt>
                 {c.total > 0 ? (
@@ -107,6 +108,7 @@ export default function Study() {
               </Pressable>
               {isOpen && (
                 <View style={{ gap: 4 }}>
+                  <Stepper label="Weekly target" value={s.weekly_goal_min / 60} unit="h" min={0} max={60} step={0.5} onChange={(h) => done(() => setWeeklyGoal(s.id, Math.round(h * 60)))} />
                   {topics.map((k) => {
                     const x = info.get(k.id);
                     return (
