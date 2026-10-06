@@ -9,9 +9,11 @@ import { useData } from '../../data';
 import { totalMs } from '../../stats';
 import { categoryColors, font, radius, space, useTheme } from '../../theme';
 import { DatePicker } from '../../components/DatePicker';
-import { ago, daysUntil, fmtDate, fmtDur } from '../../util';
+import { agoLabel, tr } from '../../i18n';
+import { daysUntil, fmtDate, fmtDur } from '../../util';
+import { withBoundary } from '../../components/ErrorBoundary';
 
-export default function Study() {
+function Study() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { tasks, sessions, exams, cards, reload } = useData();
   const dueCards = cards.filter((c) => c.due <= Date.now()).length;
@@ -35,7 +37,7 @@ export default function Study() {
   const cover = (id: number) => { const tp = tasks.filter((k) => k.parent_id === id); return { total: tp.length, done: tp.filter((k) => k.done).length }; };
   const done = async (fn: () => Promise<unknown>) => { await fn(); await reload(); };
   const confirmDel = (name: string, fn: () => Promise<unknown>) =>
-    Alert.alert(`Delete "${name}"?`, 'Past focus time stays in your stats.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => done(fn) }]);
+    Alert.alert(tr('Delete "{name}"?', { name }), tr('Past focus time stays in your stats.'), [{ text: tr('Cancel'), style: 'cancel' }, { text: tr('Delete'), style: 'destructive', onPress: () => done(fn) }]);
 
   const dateOk = ed !== '';
   const saveExam = async () => {
@@ -53,7 +55,7 @@ export default function Study() {
       <Card style={[pad, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space(3) }]}>
         <View style={{ flex: 1 }}>
           <Txt v="label">Flashcards</Txt>
-          <Txt v="h3">{dueCards ? `${dueCards} due now` : 'Nothing due'} · {cards.length} total</Txt>
+          <Txt v="h3">{`${dueCards ? tr('{n} due now', { n: dueCards }) : tr('Nothing due')} · ${tr('{n} total', { n: cards.length })}`}</Txt>
         </View>
         <Btn label={dueCards ? 'Review' : 'Open'} onPress={() => router.push(dueCards ? '/review' : '/cards')} />
       </Card>
@@ -72,16 +74,16 @@ export default function Study() {
             <Pressable key={e.id} onLongPress={() => confirmDel(e.name, () => deleteExam(e.id))}>
               <Card i={i} style={{ gap: 8 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <Txt v="h3">{e.name}</Txt>
-                  <Txt v="h2" c={days < 0 ? t.muted : days <= 7 ? t.danger : t.accentText}>{days < 0 ? 'passed' : days === 0 ? 'today' : `${days}d`}</Txt>
+                  <Txt v="h3" raw>{e.name}</Txt>
+                  <Txt v="h2" c={days < 0 ? t.muted : days <= 7 ? t.danger : t.accentText}>{days < 0 ? tr('passed') : days === 0 ? tr('today') : tr('{n}d', { n: days })}</Txt>
                 </View>
-                <Txt v="small">{sub?.name ?? 'Subject deleted'} · {fmtDate(e.date)}</Txt>
+                <Txt v="small" raw>{`${sub?.name ?? tr('Subject deleted')} · ${fmtDate(e.date)}`}</Txt>
                 {c.total > 0 ? (
                   <>
                     <View style={{ height: 8, borderRadius: 4, backgroundColor: t.surface2 }}>
                       <View style={{ width: `${(c.done / c.total) * 100}%`, height: 8, borderRadius: 4, backgroundColor: t.success }} />
                     </View>
-                    <Txt v="small">{c.done}/{c.total} topics covered{days > 0 && left > 0 ? ` · ~${(left / days).toFixed(1)} topics/day to finish` : ''}</Txt>
+                    <Txt v="small" raw>{`${tr('{done}/{total} topics covered', { done: c.done, total: c.total })}${days > 0 && left > 0 ? ` · ${tr('~{n} topics/day to finish', { n: (left / days).toFixed(1) })}` : ''}`}</Txt>
                   </>
                 ) : <Txt v="small">No topics yet. Add topics below to track coverage.</Txt>}
               </Card>
@@ -101,8 +103,8 @@ export default function Study() {
                 style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), minHeight: 48 }}>
                 <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: s.color }} />
                 <View style={{ flex: 1 }}>
-                  <Txt v="h3">{s.name}</Txt>
-                  <Txt v="small">{fmtDur(a.ms)} · {a.last ? `last ${ago(a.last)}` : 'never studied'}{c.total ? ` · ${c.done}/${c.total} covered` : ''}</Txt>
+                  <Txt v="h3" raw>{s.name}</Txt>
+                  <Txt v="small" raw>{`${fmtDur(a.ms)} · ${a.last ? tr('last {when}', { when: agoLabel(a.last) }) : tr('never studied')}${c.total ? ` · ${tr('{done}/{total} covered', { done: c.done, total: c.total })}` : ''}`}</Txt>
                 </View>
                 <Txt v="h3" c={t.muted}>{isOpen ? '−' : '+'}</Txt>
               </Pressable>
@@ -119,14 +121,14 @@ export default function Study() {
                           {!!k.done && <Txt v="small" c="#06210F" style={{ fontFamily: font.bodyBold }}>✓</Txt>}
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Txt style={{ textDecorationLine: k.done ? 'line-through' : 'none', opacity: k.done ? 0.6 : 1 }}>{k.name}</Txt>
-                          <Txt v="small">{x ? `${fmtDur(x.ms)} · last ${ago(x.last)}` : 'not studied yet'}</Txt>
+                          <Txt style={{ textDecorationLine: k.done ? 'line-through' : 'none', opacity: k.done ? 0.6 : 1 }} raw>{k.name}</Txt>
+                          <Txt v="small" raw>{x ? `${fmtDur(x.ms)} · ${tr('last {when}', { when: agoLabel(x.last) })}` : tr('not studied yet')}</Txt>
                         </View>
                       </Pressable>
                     );
                   })}
                   <View style={{ flexDirection: 'row', gap: space(2), marginTop: space(1) }}>
-                    <TextInput value={newTopic} onChangeText={setNewTopic} placeholder="New topic" placeholderTextColor={t.muted} style={[input, { flex: 1 }]}
+                    <TextInput value={newTopic} onChangeText={setNewTopic} placeholder={tr('New topic')} placeholderTextColor={t.muted} style={[input, { flex: 1 }]}
                       onSubmitEditing={() => newTopic.trim() && done(() => addTask(newTopic.trim(), '', s.color, s.id)).then(() => setNewTopic(''))} />
                     <Btn label="Add" disabled={!newTopic.trim()} onPress={() => done(() => addTask(newTopic.trim(), '', s.color, s.id)).then(() => setNewTopic(''))} />
                   </View>
@@ -137,7 +139,7 @@ export default function Study() {
           );
         })}
         <View style={{ flexDirection: 'row', gap: space(2) }}>
-          <TextInput value={newSub} onChangeText={setNewSub} placeholder="New subject" placeholderTextColor={t.muted} style={[input, { flex: 1 }]} />
+          <TextInput value={newSub} onChangeText={setNewSub} placeholder={tr('New subject')} placeholderTextColor={t.muted} style={[input, { flex: 1 }]} />
           <Btn label="Add" disabled={!newSub.trim()} onPress={() => done(() => addTask(newSub.trim(), '', categoryColors[subjects.length % categoryColors.length])).then(() => setNewSub(''))} />
         </View>
       </View>
@@ -146,14 +148,14 @@ export default function Study() {
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }} onPress={() => setExam(false)}>
           <Pressable style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(5), gap: space(3) }}>
             <Txt v="h2">New exam</Txt>
-            <TextInput value={en} onChangeText={setEn} placeholder="Name (e.g. Physics midterm)" placeholderTextColor={t.muted} style={input} />
-            <Txt v="small">Exam date{ed ? `: ${fmtDate(ed)}` : ''}</Txt>
+            <TextInput value={en} onChangeText={setEn} placeholder={tr('Name (e.g. Physics midterm)')} placeholderTextColor={t.muted} style={input} />
+            <Txt v="small" raw>{`${tr('Exam date')}${ed ? `: ${fmtDate(ed)}` : ''}`}</Txt>
             <DatePicker value={ed} onChange={setEd} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
               {subjects.map((k) => (
                 <Pressable key={k.id} onPress={() => { tap(); setEs(k.id); }}
                   style={{ minHeight: 44, paddingHorizontal: space(4), borderRadius: radius.pill, justifyContent: 'center', backgroundColor: es === k.id ? k.color : t.surface2 }}>
-                  <Txt v="h3" c={es === k.id ? '#1A1206' : t.text}>{k.name}</Txt>
+                  <Txt v="h3" raw c={es === k.id ? '#1A1206' : t.text}>{k.name}</Txt>
                 </Pressable>
               ))}
             </ScrollView>
@@ -164,3 +166,5 @@ export default function Study() {
     </ScrollView>
   );
 }
+
+export default withBoundary(Study, 'Study');

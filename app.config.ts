@@ -26,6 +26,7 @@ const config: ExpoConfig = {
     },
     predictiveBackGestureEnabled: false,
     permissions: ['VIBRATE'],
+    blockedPermissions: ['android.permission.INTERNET', 'android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.SYSTEM_ALERT_WINDOW', 'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE'], // fully offline: the app cannot reach the network
   },
   web: { output: 'static', favicon: './assets/images/favicon.png' },
   plugins: [
@@ -45,6 +46,9 @@ const config: ExpoConfig = {
           widget('Today', 'Today', 110, 110, 2, 2),
           widget('QuickStart', 'Quick start', 250, 40, 4, 1),
           widget('Week', 'Week', 250, 110, 4, 2),
+          widget('Exam', 'Next exam', 110, 110, 2, 2),
+          widget('Cards', 'Cards due', 110, 40, 2, 1),
+          widget('Subjects', 'Subjects', 250, 40, 4, 1),
         ],
       },
     ],

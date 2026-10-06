@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { insertSession, updateSession, type Session, type Task } from '../db';
 import { useData } from '../data';
+import { tr } from '../i18n';
 import { font, radius, space, useTheme } from '../theme';
-import { addDays, fmtDate, keyToTs, pad2 } from '../util';
+import { addDays, fmtDate, fmtTod, keyToTs } from '../util';
 import { TaskPicker } from './TaskPicker';
 import { Btn, Txt, tap } from './ui';
 
-const fmtMin = (m: number) => `${pad2(Math.floor((m % 1440) / 60))}:${pad2(m % 60)}${m >= 1440 ? ' (+1d)' : ''}`;
+const fmtMin = (m: number) => `${fmtTod(Math.floor((m % 1440) / 60), m % 60)}${m >= 1440 ? ' (+1d)' : ''}`;
 
 function TimeRow({ label, value, onChange }: { label: string; value: number; onChange: (m: number) => void }) {
   const t = useTheme();
@@ -38,7 +39,7 @@ export function SessionEditor({ day, session, tasks, onDone }: { day: string; se
   const [q, setQ] = useState<number | null>(session?.quality ?? null);
   const [note, setNote] = useState(session?.note ?? '');
   const startTs = addDays(base, 0) + start * 60000, endTs = base + end * 60000;
-  const err = end - start < 1 ? 'End must be after start.' : endTs > now ? 'End is in the future.' : '';
+  const err = end - start < 1 ? tr('End must be after start.') : endTs > now ? tr('End is in the future.') : '';
 
   const save = async () => {
     if (err) return;
@@ -50,7 +51,7 @@ export function SessionEditor({ day, session, tasks, onDone }: { day: string; se
 
   return (
     <View style={{ gap: space(3) }}>
-      <Txt v="h2">{session ? 'Edit session' : 'Add session'} · {fmtDate(day)}</Txt>
+      <Txt v="h2" raw>{`${tr(session ? 'Edit session' : 'Add session')} · ${fmtDate(day)}`}</Txt>
       <TaskPicker tasks={tasks} selected={task} onSelect={setTask} />
       <TimeRow label="Start" value={start} onChange={setStart} />
       <TimeRow label="End" value={end} onChange={setEnd} />
@@ -62,7 +63,7 @@ export function SessionEditor({ day, session, tasks, onDone }: { day: string; se
           </Pressable>
         ))}
       </View>
-      <TextInput value={note} onChangeText={setNote} placeholder="Note (optional)" placeholderTextColor={t.muted} multiline
+      <TextInput value={note} onChangeText={setNote} placeholder={tr('Note (optional)')} placeholderTextColor={t.muted} multiline
         style={{ minHeight: 56, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, padding: space(3), fontFamily: font.body, fontSize: 15, textAlignVertical: 'top' }} />
       {!!err && <Txt v="small" c={t.danger}>{err}</Txt>}
       <View style={{ flexDirection: 'row', gap: space(2) }}>

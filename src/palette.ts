@@ -16,3 +16,13 @@ export const contrast = (a: string, b: string) => {
   const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
 };
+
+/** Accent presets. `text` is the accent used for words, so it is darker in the light theme to stay readable. */
+export const ACCENTS = {
+  amber: { label: 'Amber', a: '#FFB547', b: '#FF6B6B', textDark: '#FFB547', textLight: '#9A4A06' },
+  ocean: { label: 'Ocean', a: '#60A5FA', b: '#818CF8', textDark: '#60A5FA', textLight: '#1D4ED8' },
+  mint: { label: 'Mint', a: '#34D399', b: '#2DD4BF', textDark: '#34D399', textLight: '#047857' },
+  rose: { label: 'Rose', a: '#FB7185', b: '#F472B6', textDark: '#FB7185', textLight: '#BE123C' },
+  violet: { label: 'Violet', a: '#A78BFA', b: '#E879F9', textDark: '#A78BFA', textLight: '#6D28D9' },
+} as const;
+export type AccentPref = keyof typeof ACCENTS;

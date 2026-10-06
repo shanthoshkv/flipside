@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BarChart, Heatmap, HourChart, Ring } from '../../components/charts';
+import { Ring } from '../../components/charts';
+import { StatsCharts } from '../../components/StatsCharts';
 import { Segmented } from '../../components/controls';
 import { DatePicker } from '../../components/DatePicker';
 import { GoalsCard, WeeklyReviewCard } from '../../components/WeekCards';
@@ -11,11 +12,13 @@ import type { Session, Task } from '../../db';
 import { useData } from '../../data';
 import { rootOf } from '../../components/TaskPicker';
 import { bestDay, dailyTotals, hourDist, longestMs, perTask, sessionsIn, streaks, totalMs, WEEKDAY } from '../../stats';
+import { tr, weekdayLetter } from '../../i18n';
 import { useSettings } from '../../store';
 import { font, radius, space, useTheme } from '../../theme';
 import { addDays, fmtDate, fmtDur, startOfDay } from '../../util';
+import { withBoundary } from '../../components/ErrorBoundary';
 
-const hourLabel = (h: number) => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
+const hourLabel = (h: number) => `${h}:00`;
 
 /** avg focus rating, best start hour, weakest subject (overall only) */
 function quality(ss: Session[], tasks: Task[], overall: boolean) {
@@ -35,7 +38,7 @@ function quality(ss: Session[], tasks: Task[], overall: boolean) {
 type Scope = 'all' | 'task';
 type Range = '7' | '30' | 'all';
 
-export default function Stats() {
+function Stats() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { sessions, tasks } = useData();
   const goal = useSettings((s) => s.goalMin) * 60000;
@@ -50,7 +53,7 @@ export default function Stats() {
   // subjects that have sessions (0 = no task); topics roll up into their subject
   const ids = useMemo(() => [...new Set(sessions.map((s) => rootOf(tasks, s.task_id)))], [sessions, tasks]);
   const known = (id: number) => tasks.find((k) => k.id === id);
-  const nameOf = (id: number) => (id === 0 ? 'No task' : known(id)?.name ?? 'Deleted task');
+  const nameOf = (id: number) => (id === 0 ? tr('No task') : known(id)?.name ?? tr('Deleted task'));
   const colorOf = (id: number) => (id === 0 ? t.muted : known(id)?.color ?? t.accentA);
   const active = scope === 'task' ? (pick != null && ids.includes(pick) ? pick : ids[0] ?? 0) : null;
 
@@ -77,7 +80,7 @@ export default function Stats() {
   const byMax = d.by[0]?.[1] ?? 1;
   const tiles: [string, string][] = [
     ['Total', fmtDur(d.total)], ['Sessions', String(d.count)], ['Avg / active day', fmtDur(d.avg)],
-    ['Longest', fmtDur(d.longest)], ['Streak', `${d.streak.current}d`], ['Best streak', `${d.streak.best}d`],
+    ['Longest', fmtDur(d.longest)], ['Streak', tr('{n}d', { n: d.streak.current })], ['Best streak', tr('{n}d', { n: d.streak.best })],
   ];
 
   return (
@@ -99,7 +102,7 @@ export default function Stats() {
                   style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: space(4), borderRadius: radius.pill,
                     backgroundColor: on ? colorOf(id) : t.surface, borderWidth: 1, borderColor: on ? colorOf(id) : t.border }}>
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? '#1A1206' : colorOf(id) }} />
-                  <Txt v="h3" c={on ? '#1A1206' : t.text}>{nameOf(id)}</Txt>
+                  <Txt v="h3" raw c={on ? '#1A1206' : t.text}>{nameOf(id)}</Txt>
                 </Pressable>
               );
             })}
@@ -112,7 +115,7 @@ export default function Stats() {
               return (
                 <Pressable key={id ?? 'all'} onPress={() => { tap(); setTopic(id); }}
                   style={{ minHeight: 40, paddingHorizontal: space(4), borderRadius: radius.pill, justifyContent: 'center', backgroundColor: on ? colorOf(active) : t.surface2 }}>
-                  <Txt v="small" c={on ? '#1A1206' : t.text} style={{ fontFamily: font.bodyBold }}>{id == null ? 'All topics' : known(id)?.name}</Txt>
+                  <Txt v="small" raw c={on ? '#1A1206' : t.text} style={{ fontFamily: font.bodyBold }}>{id == null ? tr('All topics') : known(id)?.name}</Txt>
                 </Pressable>
               );
             })}
@@ -124,54 +127,41 @@ export default function Stats() {
       {sessions.length === 0 && <Card style={pad}><EmptyState title="No focus yet" hint="Flip your phone face-down on the Timer tab. Your first session shows up here." /></Card>}
 
       <Card i={0} style={[pad, { alignItems: 'center', gap: space(3) }]}>
-        <Txt v="label">{active == null ? 'Today vs goal' : `${topic != null ? known(topic)?.name : nameOf(active)} today vs goal`}</Txt>
+        <Txt v="label" raw>{active == null ? tr('Today vs goal') : tr('{name} today vs goal', { name: (topic != null ? known(topic)?.name : nameOf(active)) ?? '' })}</Txt>
         <Ring progress={d.today / goal}>
           <CountUp value={d.today} format={fmtDur} style={{ fontFamily: font.headBold, fontSize: 32, color: t.text }} />
-          <Txt v="small">of {fmtDur(goal)}</Txt>
+          <Txt v="small" raw>{tr('of {t}', { t: fmtDur(goal) })}</Txt>
         </Ring>
-        <Txt v="small">All-time {active == null ? '' : `on ${topic != null ? known(topic)?.name : nameOf(active)} `}· {fmtDur(d.allTime)}</Txt>
+        <Txt v="small" raw>{`${tr('All time')}${active == null ? '' : ` · ${topic != null ? known(topic)?.name : nameOf(active)}`} · ${fmtDur(d.allTime)}`}</Txt>
       </Card>
 
       <View style={[pad, { flexDirection: 'row', flexWrap: 'wrap', gap: space(3) }]}>
         {tiles.map(([k, v], i) => (
-          <Card key={k} i={i + 1} style={{ width: '31%', flexGrow: 1, padding: space(3) }}><Txt v="label" numberOfLines={1}>{k}</Txt><Txt v="h2">{v}</Txt></Card>
+          <Card key={k} i={i + 1} style={{ width: '31%', flexGrow: 1, padding: space(3) }}><Txt v="label" numberOfLines={1}>{k}</Txt><Txt v="h2" raw>{v}</Txt></Card>
         ))}
       </View>
 
       <View style={pad}><Btn kind="ghost" label="Open any day" onPress={() => setPickOpen(true)} /></View>
 
-      <Card i={4} style={pad}>
-        <Txt v="label" style={{ marginBottom: space(3) }}>Last 7 days · tap a day</Txt>
-        <BarChart onSelect={(i) => setDay(d.week[i].key)} goal={active == null ? goal : undefined} data={d.week.map((x, i) => ({ label: WEEKDAY[new Date(x.ts).getDay()], ms: x.ms, hot: i === 6 }))} />
-      </Card>
-
-      <Card i={5} style={pad}>
-        <Txt v="label" style={{ marginBottom: space(3) }}>15 weeks · tap a day</Txt>
-        <Heatmap days={d.heat} onSelect={setDay} />
-      </Card>
-
-      <Card i={6} style={pad}>
-        <Txt v="label" style={{ marginBottom: space(3) }}>Hour of day</Txt>
-        <HourChart hours={d.hours} />
-      </Card>
+      <StatsCharts ss={d.ss} tasks={tasks} active={active} topic={topic} range={range} goal={goal} hours={d.hours} onDay={setDay} />
 
       {d.q && (
         <Card i={7} style={[pad, { gap: space(2) }]}>
           <Txt v="label">Focus quality</Txt>
-          <Txt v="h2">{d.q.avg.toFixed(1)} / 5 <Txt v="small">· {d.q.n} rated</Txt></Txt>
-          {d.q.bestHour != null && <Txt v="small">Best around {hourLabel(d.q.bestHour)} ({d.q.bestAvg.toFixed(1)} avg)</Txt>}
-          {d.q.weak && <Txt v="small">Weakest subject: {nameOf(d.q.weak.id)} ({d.q.weak.avg.toFixed(1)} avg)</Txt>}
+          <Txt v="h2" raw>{`${d.q.avg.toFixed(1)} / 5`}<Txt v="small" raw>{` · ${tr('{n} rated', { n: d.q.n })}`}</Txt></Txt>
+          {d.q.bestHour != null && <Txt v="small" raw>{tr('Best around {h} ({avg} avg)', { h: hourLabel(d.q.bestHour), avg: d.q.bestAvg.toFixed(1) })}</Txt>}
+          {d.q.weak && <Txt v="small" raw>{tr('Weakest subject: {name} ({avg} avg)', { name: nameOf(d.q.weak.id), avg: d.q.weak.avg.toFixed(1) })}</Txt>}
         </Card>
       )}
 
       {topic == null && (
         <Card i={8} style={[pad, { gap: space(3) }]}>
-          <Txt v="label">{active == null ? 'By subject' : 'By topic'} · {range === 'all' ? 'all time' : `last ${range} days`}</Txt>
+          <Txt v="label" raw>{`${tr(active == null ? 'By subject' : 'By topic')} · ${range === 'all' ? tr('All time') : tr('Last {n} days', { n: range })}`}</Txt>
           {d.by.length === 0 && <Txt v="small">Nothing in this range.</Txt>}
           {d.by.map(([id, ms]) => (
             <Pressable key={id} onPress={() => { if (active == null) { tap(); setPick(id); setScope('task'); } }} style={{ gap: 6 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Txt v="h3">{active != null && id === active ? 'Whole subject' : active != null ? known(id)?.name ?? 'Deleted topic' : nameOf(id)}</Txt><Txt v="small">{fmtDur(ms)} · {Math.round((ms / (d.total || 1)) * 100)}%</Txt>
+                <Txt v="h3" raw>{active != null && id === active ? tr('Whole subject') : active != null ? known(id)?.name ?? tr('Deleted topic') : nameOf(id)}</Txt><Txt v="small" raw>{`${fmtDur(ms)} · ${Math.round((ms / (d.total || 1)) * 100)}%`}</Txt>
               </View>
               <View style={{ height: 8, borderRadius: 4, backgroundColor: t.surface2 }}>
                 <View style={{ width: `${(ms / byMax) * 100}%`, height: 8, borderRadius: 4, backgroundColor: colorOf(active == null ? id : active) }} />
@@ -181,7 +171,7 @@ export default function Stats() {
         </Card>
       )}
 
-      {d.best && <Txt v="small" style={{ paddingHorizontal: space(4) }}>Best day: {fmtDate(d.best.key)} · {fmtDur(d.best.ms)}</Txt>}
+      {d.best && <Txt v="small" raw style={{ paddingHorizontal: space(4) }}>{`${tr('Best day')}: ${fmtDate(d.best.key)} · ${fmtDur(d.best.ms)}`}</Txt>}
       <Modal transparent animationType="fade" visible={pickOpen} onRequestClose={() => setPickOpen(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }} onPress={() => setPickOpen(false)}>
           <Pressable style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(4), gap: space(3) }}>
@@ -195,3 +185,5 @@ export default function Stats() {
     </ScrollView>
   );
 }
+
+export default withBoundary(Stats, 'Stats');

@@ -11,11 +11,13 @@ import { Btn, Card, EmptyState, Txt, tap } from '../components/ui';
 import { addCards, deleteCard, newIntroducedSince, reviewedSince, type Card as CardRow } from '../db';
 import { useData } from '../data';
 import { buildQueue, fmtInterval, isDue } from '../engine/srs';
+import { tr } from '../i18n';
 import { useSettings } from '../store';
 import { radius, space, useTheme } from '../theme';
 import { addDays, startOfDay } from '../util';
+import { withBoundary } from '../components/ErrorBoundary';
 
-export default function Cards() {
+function Cards() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { cards, tasks, reload } = useData();
   const cfg = useSettings();
@@ -46,7 +48,7 @@ export default function Cards() {
     }
     return out;
   }, [cards]);
-  const nameOf = (id: number) => (id === 0 ? 'No subject' : tasks.find((k) => k.id === id)?.name ?? 'Deleted');
+  const nameOf = (id: number) => (id === 0 ? tr('No subject') : tasks.find((k) => k.id === id)?.name ?? tr('Deleted'));
 
   const importFile = async () => {
     try {
@@ -56,12 +58,12 @@ export default function Cards() {
         const i = l.includes('\t') ? l.indexOf('\t') : l.indexOf(',');
         return i < 0 ? null : { task_id: sel, front: l.slice(0, i).trim(), back: l.slice(i + 1).trim() };
       }).filter((x): x is { task_id: number; front: string; back: string } => !!x && !!x.front && !!x.back);
-      if (!rows.length) return Alert.alert('Nothing imported', 'Use one card per line: front, then a tab or comma, then back.');
+      if (!rows.length) return Alert.alert(tr('Nothing imported'), tr('Use one card per line: front, then a tab or comma, then back.'));
       await addCards(rows); await reload();
-      Alert.alert('Imported', `${rows.length} cards added to ${nameOf(sel)}.`);
-    } catch (e) { Alert.alert('Import failed', String(e)); }
+      Alert.alert(tr('Imported'), tr('{n} cards added to {name}.', { n: rows.length, name: nameOf(sel) }));
+    } catch (e) { Alert.alert(tr('Import failed'), String(e)); }
   };
-  const del = (c: CardRow) => Alert.alert('Delete card?', undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { dropImage(c.front_img); dropImage(c.back_img); await deleteCard(c.id); await reload(); } }]);
+  const del = (c: CardRow) => Alert.alert(tr('Delete card?'), undefined, [{ text: tr('Cancel'), style: 'cancel' }, { text: tr('Delete'), style: 'destructive', onPress: async () => { dropImage(c.front_img); dropImage(c.back_img); await deleteCard(c.id); await reload(); } }]);
   const go = (task?: number) => router.push(task === undefined ? '/review' : { pathname: '/review', params: { task: String(task) } });
 
   return (
@@ -77,8 +79,8 @@ export default function Cards() {
             <View key={k as string}><Txt v="label">{k}</Txt><Txt v="h1">{v}</Txt></View>
           ))}
         </View>
-        <Btn label={queue.length ? `Review ${queue.length}` : 'Nothing to review'} disabled={!queue.length} onPress={() => go()} />
-        <Txt v="small">New today {today.fresh}/{cfg.newPerDay} · reviews {today.reviews}/{cfg.reviewsPerDay}{due.length > queue.length ? ` · ${due.length - queue.length} more waiting (daily limit)` : ''}. Change limits in Settings.</Txt>
+        <Btn label={queue.length ? tr('Review {n}', { n: queue.length }) : 'Nothing to review'} disabled={!queue.length} onPress={() => go()} />
+        <Txt v="small" raw>{`${tr('New today')} ${today.fresh}/${cfg.newPerDay} · ${tr('reviews')} ${today.reviews}/${cfg.reviewsPerDay}${due.length > queue.length ? ` · ${tr('{n} more waiting (daily limit)', { n: due.length - queue.length })}` : ''}. ${tr('Change limits in Settings.')}`}</Txt>
       </Card>
 
       <Card style={{ marginHorizontal: space(4) }}>
@@ -91,7 +93,7 @@ export default function Cards() {
           <Txt v="label">Decks</Txt>
           {decks.map(([id, x]) => (
             <Pressable key={id} disabled={!x.due} onPress={() => go(id)} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: t.surface, borderRadius: radius.md, paddingHorizontal: space(4), borderWidth: 1, borderColor: t.border }}>
-              <Txt v="h3">{nameOf(id)}</Txt><Txt v="small" c={x.due ? t.accentText : t.muted}>{x.due} due · {x.total} cards</Txt>
+              <Txt v="h3" raw>{nameOf(id)}</Txt><Txt v="small" raw c={x.due ? t.accentText : t.muted}>{tr('{due} due · {total} cards', { due: x.due, total: x.total })}</Txt>
             </Pressable>
           ))}
         </View>
@@ -112,12 +114,14 @@ export default function Cards() {
         {[...cards].reverse().slice(0, 100).map((c) => (
           <Pressable key={c.id} onPress={() => { tap(); setEdit(c); setSel(c.task_id); }} onLongPress={() => del(c)}
             style={{ backgroundColor: t.surface, borderRadius: radius.md, padding: space(3), gap: 2, borderWidth: 1, borderColor: edit?.id === c.id ? t.accentA : t.border }}>
-            <Txt v="h3" numberOfLines={2}>{c.front || '(image)'}</Txt>
-            <Txt v="small" numberOfLines={2}>{c.back || '(image)'}</Txt>
-            <Txt v="small">{nameOf(rootOf(tasks, c.task_id))} · {isDue(c, now) ? 'due now' : c.interval ? `every ${fmtInterval(c.interval)}` : 'new'}{c.front_img || c.back_img ? ' · image' : ''}</Txt>
+            <Txt v="h3" numberOfLines={2} raw>{c.front || tr('(image)')}</Txt>
+            <Txt v="small" numberOfLines={2} raw>{c.back || tr('(image)')}</Txt>
+            <Txt v="small" raw>{`${nameOf(rootOf(tasks, c.task_id))} · ${isDue(c, now) ? tr('due now') : c.interval ? tr('every {t}', { t: fmtInterval(c.interval) }) : tr('new')}${c.front_img || c.back_img ? ` · ${tr('image')}` : ''}`}</Txt>
           </Pressable>
         ))}
       </View>
     </ScrollView>
   );
 }
+
+export default withBoundary(Cards, 'Flashcards');

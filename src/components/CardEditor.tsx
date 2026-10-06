@@ -6,6 +6,7 @@ import { Alert, Pressable, TextInput, View } from 'react-native';
 import { addCards, updateCard, type Card } from '../db';
 import { useData } from '../data';
 import { clozeCards } from '../engine/srs';
+import { tr } from '../i18n';
 import { font, radius, space, useTheme } from '../theme';
 import { TaskPicker } from './TaskPicker';
 import { Btn, Txt, tap } from './ui';
@@ -39,7 +40,7 @@ export function CardEditor({ tasks, edit, sel, setSel, onDone }: {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (r.canceled) return;
     try { const u = await keepImage(r.assets[0].uri, side); if (side === 'front') { dropImage(fi); setFi(u); } else { dropImage(bi); setBi(u); } }
-    catch (e) { Alert.alert('Could not add image', String(e)); }
+    catch (e) { Alert.alert(tr('Could not add image'), String(e)); }
   };
 
   const save = async () => {
@@ -58,7 +59,7 @@ export function CardEditor({ tasks, edit, sel, setSel, onDone }: {
   const Img = ({ uri, side, set }: { uri: string | null; side: 'front' | 'back'; set: (u: string | null) => void }) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
       {uri && <Image source={{ uri }} style={{ width: 56, height: 56, borderRadius: radius.sm }} contentFit="cover" accessibilityLabel={`${side} image`} />}
-      <Btn kind="ghost" label={uri ? `Replace ${side} image` : `+ ${side} image`} onPress={() => pick(side)} style={{ flex: 1 }} />
+      <Btn kind="ghost" label={uri ? (side === 'front' ? 'Replace front image' : 'Replace back image') : side === 'front' ? '+ front image' : '+ back image'} onPress={() => pick(side)} style={{ flex: 1 }} />
       {uri && <Btn kind="ghost" label="Remove" onPress={() => { dropImage(uri); set(null); }} />}
     </View>
   );
@@ -67,11 +68,11 @@ export function CardEditor({ tasks, edit, sel, setSel, onDone }: {
     <View style={{ gap: space(3) }}>
       <TaskPicker tasks={tasks} selected={sel} onSelect={setSel} />
       <View style={{ paddingHorizontal: space(4), gap: space(2) }}>
-        <TextInput value={front} onChangeText={setFront} placeholder="Front, or cloze text like: The {{c1::heart}} pumps {{c2::blood}}" placeholderTextColor={t.muted} multiline style={input} accessibilityLabel="Front" />
+        <TextInput value={front} onChangeText={setFront} placeholder={tr('Front, or cloze text like: The {{c1::heart}} pumps {{c2::blood}}')} placeholderTextColor={t.muted} multiline style={input} accessibilityLabel="Front" />
         {!cloze && <Img uri={fi} side="front" set={setFi} />}
-        <TextInput value={back} onChangeText={setBack} placeholder={cloze ? 'Extra info shown on the answer (optional)' : 'Back (answer)'} placeholderTextColor={t.muted} multiline style={input} accessibilityLabel="Back" />
+        <TextInput value={back} onChangeText={setBack} placeholder={tr(cloze ? 'Extra info shown on the answer (optional)' : 'Back (answer)')} placeholderTextColor={t.muted} multiline style={input} accessibilityLabel="Back" />
         {!cloze && <Img uri={bi} side="back" set={setBi} />}
-        {cloze && <Txt v="small">Cloze detected: one card is made per blank ({clozeCards(front).length}).</Txt>}
+        {cloze && <Txt v="small">{tr('Cloze detected: one card is made per blank ({n}).', { n: clozeCards(front).length })}</Txt>}
         {!edit && !cloze && (
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: rev }} onPress={() => { tap(); setRev(!rev); }} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
             <View style={{ width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: rev ? t.success : t.dotOff, backgroundColor: rev ? t.success : 'transparent' }} />

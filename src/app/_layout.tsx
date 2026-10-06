@@ -1,6 +1,3 @@
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
-import { SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
-import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,42 +6,59 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
+import { loadFont } from '../appearance';
+import { runBackup } from '../backup';
 import { Onboarding } from '../components/Onboarding';
-import { initDb } from '../db';
+import { initDb, setSetting } from '../db';
 import { useData } from '../data';
 import { useSettings } from '../store';
 import { useTheme } from '../theme';
+import { setDnd } from '../engine/focusmode';
+import { setLang } from '../i18n';
+import { syncReminders } from '../reminders';
 import { refreshWidgets } from '../widgets/refresh';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// Keep the message of any uncaught JS error so Settings can show it after a restart.
+const errUtils = (globalThis as any).ErrorUtils;
+const prevHandler = errUtils?.getGlobalHandler?.();
+errUtils?.setGlobalHandler?.((e: any, fatal?: boolean) => {
+  try { setSetting('lastError', JSON.stringify(`${fatal ? 'FATAL ' : ''}${e?.message ?? e}\n${String(e?.stack ?? '').split('\n').slice(0, 6).join('\n')}`)); } catch { /* best effort */ }
+  prevHandler?.(e, fatal);
+});
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
 });
 
 export default function Root() {
-  const [fontsOk] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold });
   const [ready, setReady] = useState(false);
   const t = useTheme();
   const onboarded = useSettings((s) => s.onboarded);
+  const lang = useSettings((s) => s.lang);
+  setLang(lang); // before children render, so every string picks up the language
 
   useEffect(() => {
     (async () => {
       await initDb();
       await useSettings.getState().load();
+      await loadFont(useSettings.getState().fontPref);
       await useData.getState().reload();
       if (!useSettings.getState().onboarded && useData.getState().tasks.length > 0) useSettings.getState().set('onboarded', true);
       if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('default', { name: 'Timer', importance: Notifications.AndroidImportance.HIGH }).catch(() => {});
+      setDnd(false); // restore any filter left behind if the app died mid-focus
       setReady(true);
       refreshWidgets();
+      syncReminders();
+      runBackup();
     })();
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') { useData.getState().reload(); refreshWidgets(); }
+      if (s === 'active') { useData.getState().reload(); refreshWidgets(); syncReminders(); runBackup(); }
     });
     return () => sub.remove();
   }, []);
 
-  useEffect(() => { if (fontsOk && ready) SplashScreen.hideAsync().catch(() => {}); }, [fontsOk, ready]);
-  if (!fontsOk || !ready) return null;
+  useEffect(() => { if (ready) SplashScreen.hideAsync().catch(() => {}); }, [ready]);
+  if (!ready) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>

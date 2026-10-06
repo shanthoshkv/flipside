@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { Detector, THRESH } from '../src/engine/detect.ts';
-import { streaks, totalMs, actualSlots, hourDist } from '../src/stats.ts';
+import { streaks, totalMs, actualSlots, hourDist, dayBlocks, weekDays, stackedDays, weeklyTotals, weekdayAverage, pieData, contributionGrid, level, dailyTotals } from '../src/stats.ts';
 import { schedule, previews, buildQueue, clozeCards } from '../src/engine/srs.ts';
 import { weeklyReview } from '../src/weekly.ts';
+import { planBlocks, blockTimes, inQuiet, nextSundays } from '../src/remindCore.ts';
+import { rows } from '../src/locales/strings.ts';
+import { rows2 } from '../src/locales/strings2.ts';
 import { planDay } from '../src/engine/planner.ts';
-import { contrast, dark, light } from '../src/palette.ts';
+import { ACCENTS, contrast, dark, light } from '../src/palette.ts';
 import { calibrate } from '../src/engine/detect.ts';
 
 // flip start after 1s flat face-down, then stop on lift
@@ -80,13 +83,67 @@ const base = { now: nowT, weeklyGoalMs: 600 * 60000, rootOf: (id: number) => id,
 const w1 = weeklyReview({ ...base, sessions: [mkS(0, 120, 1), mkS(1, 60, 1), mkS(2, 90, 2), mkS(9, 60, 1)], exams: [{ subjectId: 3, days: 5, name: 'Chem exam' }] });
 assert.equal(w1.cur, 270 * 60000);
 assert.equal(w1.prev, 60 * 60000);
-assert.ok(w1.suggestion.includes('Plan a block'), 'neglected subject with near exam');
+assert.ok(w1.suggestion.includes('Plan a block') && w1.suggestion.includes('Chem exam') && !w1.suggestion.includes('{'), 'neglected subject with near exam');
 const w2 = weeklyReview({ ...base, sessions: [mkS(0, 100, 1)], exams: [] });
 assert.ok(w2.suggestion.includes('more minutes a day'), 'goal gap');
 const w3 = weeklyReview({ ...base, sessions: [mkS(0, 700, 1), mkS(9, 100, 1)], exams: [] });
 assert.ok(w3.suggestion.startsWith('Up '), 'growth');
 assert.equal(w1.top?.id, 1);
 assert.equal(weeklyReview({ ...base, sessions: [mkS(0, 60, 1, { quality: 4 }), mkS(1, 60, 1, { quality: 2, breaks: 1 })], exams: [] }).quality, 3);
+
+// reminders: blocks, quiet hours (wrapping midnight), Sundays
+const blocks = planBlocks([{ task_id: 1, date: '2026-06-10', slot: 110 }, { task_id: 1, date: '2026-06-10', slot: 111 }, { task_id: 1, date: '2026-06-10', slot: 112 }, { task_id: 2, date: '2026-06-10', slot: 113 }, { task_id: 1, date: '2026-06-11', slot: 60 }]);
+assert.deepEqual(blocks.map((b) => [b.date, b.startSlot, b.taskId]), [['2026-06-10', 110, 1], ['2026-06-10', 113, 2], ['2026-06-11', 60, 1]], 'consecutive slots merge, task change splits');
+assert.ok(inQuiet(23, 22, 7) && inQuiet(3, 22, 7) && !inQuiet(12, 22, 7) && !inQuiet(7, 22, 7) && !inQuiet(5, 5, 5), 'quiet hours wrap');
+const bt = blockTimes(blocks, new Date(2026, 5, 10, 8).getTime(), 10, { start: 22, end: 7 });
+assert.equal(bt.length, 3, 'future blocks kept');
+assert.equal(new Date(bt[0].at).getHours() * 60 + new Date(bt[0].at).getMinutes(), 18 * 60 + 20 - 10, 'lead time applied (slot 110 = 18:20)');
+assert.equal(blockTimes(blocks, new Date(2026, 5, 10, 19).getTime(), 10, { start: 22, end: 7 }).length, 1, 'past blocks dropped');
+assert.equal(blockTimes(blocks, 0, 10, { start: 9, end: 11 }).filter((b) => b.date === '2026-06-11').length, 0, 'block at 10:00 inside quiet hours dropped');
+const sundays = nextSundays(new Date(2026, 5, 10, 12).getTime(), 19, 2);
+assert.deepEqual(sundays.map((d) => new Date(d).getDay()), [0, 0]);
+assert.equal(new Date(sundays[0]).getDate(), 14);
+
+// timeline / pie / contribution helpers
+const H = 3600000, base0 = new Date(2026, 5, 8).getTime(); // a Monday
+const sess = [
+  { task_id: 1, start_ts: base0 + 9 * H, end_ts: base0 + 10.5 * H, heartbeat_ts: null },
+  { task_id: 2, start_ts: base0 + 23 * H, end_ts: base0 + 25 * H, heartbeat_ts: null }, // crosses midnight
+  { task_id: 1, start_ts: base0 + 2 * 24 * H + 8 * H, end_ts: base0 + 2 * 24 * H + 9 * H, heartbeat_ts: null },
+];
+const wd = weekDays(sess, base0);
+assert.equal(wd[0].blocks.length, 2); assert.equal(wd[1].blocks.length, 1, 'midnight-crossing session is split');
+assert.equal(wd[0].ms, 2.5 * H); assert.equal(wd[1].ms, 1 * H);
+assert.equal(dayBlocks(sess, base0)[1].b, 24 * H, 'clipped to the day end');
+const sd = stackedDays(sess, base0, 3, (id) => id);
+assert.deepEqual(sd[0].parts.map((p) => p[0]), [1, 2]);
+assert.equal(sd[0].parts[0][1], 1.5 * H);
+assert.equal(weeklyTotals(sess, base0, 2)[1].ms, 4.5 * H, 'this week total');
+assert.equal(weeklyTotals(sess, base0, 2)[0].ms, 0, 'previous week empty');
+const pie = pieData([[1, 50], [2, 40], [3, 30], [4, 20], [5, 10], [6, 5]], 4);
+assert.equal(pie.length, 4); assert.deepEqual(pie[3], { id: -1, ms: 35 }, 'rest grouped as other');
+assert.equal(pieData([[1, 5], [2, 0]]).length, 1, 'zeros dropped');
+const dt = dailyTotals(sess, base0 + 6 * 24 * H, 14).map((d) => ({ ...d }));
+const grid = contributionGrid(dt, 1);
+assert.ok(grid.cols.every((c) => c.length === 7 || c === grid.cols[grid.cols.length - 1]), 'full weeks except the last');
+assert.equal(grid.cols[0].findIndex((d) => d), (new Date(dt[0].ts).getDay() + 6) % 7, 'first column padded to the week start');
+assert.deepEqual([level(0, 10), level(1, 10), level(5, 10), level(10, 10)], [0, 1, 2, 4]);
+assert.equal(weekdayAverage(sess, base0 + 6 * 24 * H, 1)[1] > 0, true);
+
+// explicit calendar-week window
+const wkFrom = new Date(2026, 5, 8).getTime(), ww = weeklyReview({ ...base, now: wkFrom + 3 * D, range: { from: wkFrom, to: wkFrom + 7 * D }, sessions: [{ task_id: 1, start_ts: wkFrom + 2 * D + 3600000, end_ts: wkFrom + 2 * D + 7200000, heartbeat_ts: null }, { task_id: 1, start_ts: wkFrom - 2 * D, end_ts: wkFrom - 2 * D + 1800000, heartbeat_ts: null }], exams: [] });
+assert.equal(ww.cur, 60 * 60000, 'only sessions inside the calendar week count');
+assert.equal(ww.prev, 30 * 60000, 'previous calendar week');
+
+// translations: every row has all 6 languages and keeps the {placeholders} of the English text
+const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).filter((x) => !/^\{\{/.test(x)).sort().join(',');
+for (const r of [...rows, ...rows2]) {
+  assert.equal(r.length, 7, `row needs 7 columns: ${r[0]}`);
+  for (let i = 1; i < 7; i++) {
+    assert.ok(r[i].trim().length > 0, `empty translation ${i} for: ${r[0]}`);
+    assert.equal(ph(r[i].replace(/\{\{.*?\}\}/g, '')), ph(r[0].replace(/\{\{.*?\}\}/g, '')), `placeholders differ (col ${i}) for: ${r[0]}`);
+  }
+}
 
 // WCAG AA (4.5:1) for every text colour on every surface it is drawn on, both themes
 for (const [name, p] of Object.entries({ dark, light })) {
@@ -96,6 +153,15 @@ for (const [name, p] of Object.entries({ dark, light })) {
     }
   }
   for (const bg of ['accentA', 'accentB'] as const) assert.ok(contrast('#1A1206', p[bg]) >= 4.5, `${name}: button text on ${bg}`);
+}
+
+// every accent preset stays readable in both themes
+for (const [id, a] of Object.entries(ACCENTS)) {
+  for (const bg of ['bg', 'surface', 'surface2'] as const) {
+    assert.ok(contrast(a.textDark, dark[bg]) >= 4.5, `${id}: text on dark ${bg}`);
+    assert.ok(contrast(a.textLight, light[bg]) >= 4.5, `${id}: text on light ${bg} = ${contrast(a.textLight, light[bg]).toFixed(2)}`);
+  }
+  assert.ok(contrast('#1A1206', a.a) >= 4.5 && contrast('#1A1206', a.b) >= 4.5, `${id}: button text`);
 }
 
 // calibration

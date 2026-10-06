@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import { addTask } from '../db';
 import { useData } from '../data';
 import type { Task } from '../db';
+import { tr } from '../i18n';
 import { categoryColors, space } from '../theme';
 import { TaskChips } from './TaskChips';
 import { Txt } from './ui';
@@ -26,7 +27,7 @@ export function TaskPicker({ tasks, selected, onSelect, disabled }: {
         onSelect={onSelect} onAdd={(n, c, col) => add(n, c || '', col || categoryColors[0])} />
       {subject && (
         <View style={{ gap: 4 }}>
-          <Txt v="label" style={{ paddingHorizontal: space(4) }}>Topics · {subject.name}</Txt>
+          <Txt v="label" raw style={{ paddingHorizontal: space(4) }}>{`${tr('Topics')} · ${subject.name}`}</Txt>
           <TaskChips simple disabled={disabled} tasks={tasks.filter((k) => k.parent_id === root)} selected={selected === root ? null : selected}
             onSelect={(id) => onSelect(id === selected ? root : id)} onAdd={(n) => add(n, '', subject.color, root)} />
         </View>

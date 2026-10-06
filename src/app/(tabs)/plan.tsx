@@ -6,17 +6,19 @@ import { TaskPicker } from '../../components/TaskPicker';
 import { Stepper } from '../../components/controls';
 import { Btn, Card, Txt, tap, useWidth } from '../../components/ui';
 import { planDay, type PTopic } from '../../engine/planner';
+import { scheduleSync } from '../../reminders';
 import { clearPlans, getDiary, plansForDate, saveDiary, setPlan } from '../../db';
 import { useData } from '../../data';
 import { actualSlots } from '../../stats';
 import { useSettings } from '../../store';
 import { font, radius, space, useTheme } from '../../theme';
+import { tr, weekdayShort } from '../../i18n';
 import { addDays, dayKey, daysUntil, keyToTs, pad2, startOfDay } from '../../util';
+import { withBoundary } from '../../components/ErrorBoundary';
 
 const ROW = 40;
-const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function Plan() {
+function Plan() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { tasks, sessions, exams } = useData();
   const cfg = useSettings();
@@ -53,7 +55,7 @@ export default function Plan() {
       if (mode.current === 'on') n.set(slot, taskId); else n.delete(slot);
       return n;
     });
-    setPlan(taskId, date, slot, mode.current === 'on');
+    setPlan(taskId, date, slot, mode.current === 'on').then(scheduleSync);
   }, [taskId, date]);
   const begin = (x: number, y: number) => {
     const s = slotAt(x, y);
@@ -69,7 +71,7 @@ export default function Plan() {
   const reloadPlan = () => plansForDate(date).then((ps) => setPlanState(new Map(ps.map((p) => [p.slot, p.task_id]))));
   const autoPlan = async (n: number) => {
     const subjects = tasks.filter((k) => !k.parent_id);
-    if (!subjects.length) return Alert.alert('No subjects', 'Add subjects and topics in the Study tab first.');
+    if (!subjects.length) return Alert.alert(tr('No subjects'), tr('Add subjects and topics in the Study tab first.'));
     const last = new Map<number, number>();
     for (const s of sessions) last.set(s.task_id, Math.max(last.get(s.task_id) ?? 0, s.end_ts ?? s.heartbeat_ts ?? s.start_ts));
     const topics: PTopic[] = subjects.flatMap((s) => {
@@ -92,9 +94,10 @@ export default function Plan() {
       added += placed.length;
     }
     await reloadPlan();
-    Alert.alert(added ? 'Planned' : 'Nothing to add', added ? `${added * 10} minutes scheduled. Existing dots were kept.` : 'No free time in your study window, or the daily goal is already planned.');
+    scheduleSync();
+    Alert.alert(added ? tr('Planned') : tr('Nothing to add'), added ? tr('{n} minutes scheduled. Existing dots were kept.', { n: added * 10 }) : tr('No free time in your study window, or the daily goal is already planned.'));
   };
-  const clearDay = () => Alert.alert('Clear this day\'s plan?', undefined, [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear', style: 'destructive', onPress: async () => { await clearPlans(date); await reloadPlan(); } }]);
+  const clearDay = () => Alert.alert(tr('Clear this day\'s plan?'), undefined, [{ text: tr('Cancel'), style: 'cancel' }, { text: tr('Clear'), style: 'destructive', onPress: async () => { await clearPlans(date); await reloadPlan(); scheduleSync(); } }]);
 
   const saveLine = (i: number, v: string) => {
     const n = [...diary]; n[i] = v; setDiary(n);
@@ -109,9 +112,9 @@ export default function Plan() {
         {days.map((d) => {
           const k = dayKey(d), on = k === date, now = d === today;
           return (
-            <Pressable key={k} accessibilityLabel={`${DOW[new Date(d).getDay()]} ${new Date(d).getDate()}`} onPress={() => { tap(); setDate(k); }}
+            <Pressable key={k} accessibilityLabel={`${weekdayShort(new Date(d).getDay())} ${new Date(d).getDate()}`} onPress={() => { tap(); setDate(k); }}
               style={{ width: 56, minHeight: 64, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.accentA : t.surface, borderWidth: 1, borderColor: now && !on ? t.accentA : t.border }}>
-              <Txt v="small" c={on ? '#1A1206' : t.muted}>{DOW[new Date(d).getDay()]}</Txt>
+              <Txt v="small" c={on ? '#1A1206' : t.muted} raw>{weekdayShort(new Date(d).getDay())}</Txt>
               <Txt v="h2" c={on ? '#1A1206' : t.text}>{new Date(d).getDate()}</Txt>
             </Pressable>
           );
@@ -139,21 +142,35 @@ export default function Plan() {
 
       <Card style={{ marginHorizontal: space(4) }}>
         <View style={{ flexDirection: 'row', gap: space(4), marginBottom: space(3) }}>
-          <Txt v="small">○ planned</Txt><Txt v="small">● focused</Txt><Txt v="small">tap or hold-drag to paint</Txt>
+          <Txt v="small">▭ planned</Txt><Txt v="small">■ focused</Txt><Txt v="small">tap or hold-drag to paint</Txt>
+        </View>
+        <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+          <View style={{ width: 44 }} />
+          {[0, 10, 20, 30, 40, 50].map((m) => <Txt key={m} v="small" raw style={{ flex: 1, textAlign: 'center', fontSize: 10 }}>{`:${pad2(m)}`}</Txt>)}
         </View>
         <GestureDetector gesture={gesture}>
           <View onLayout={onLayout} collapsable={false}>
             {Array.from({ length: 24 }, (_, h) => (
               <View key={h} style={{ height: ROW, flexDirection: 'row', alignItems: 'center' }} pointerEvents="none">
-                <Txt v="small" style={{ width: 44 }}>{pad2(h)}:00</Txt>
-                <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
+                <Txt v="small" raw style={{ width: 44 }}>{`${pad2(h)}:00`}</Txt>
+                <View style={{ flex: 1, flexDirection: 'row' }}>
                   {Array.from({ length: 6 }, (_, c) => {
-                    const s = h * 6 + c, a = actual.get(s), p = plan.get(s);
+                    // each slot is a rectangle; neighbours of the same kind join into one bar
+                    const kind = (i: number) => { const a = actual.get(i), q = plan.get(i); return a != null ? `a${a}` : q != null ? `p${q}` : 'e'; };
+                    const s = h * 6 + c, a = actual.get(s), p = plan.get(s), k = kind(s);
+                    const joinL = c > 0 && k !== 'e' && kind(s - 1) === k, joinR = c < 5 && k !== 'e' && kind(s + 1) === k;
                     const col = color(a ?? p);
+                    const r = 7;
                     return (
-                      <View key={c} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: a != null ? col : 'transparent',
-                        borderWidth: 2, borderColor: a != null ? col : p != null ? col : t.dotOff }}>
-                        {a != null && p != null && <View style={{ position: 'absolute', top: 5, left: 5, width: 8, height: 8, borderRadius: 4, backgroundColor: t.bg, opacity: 0.55 }} />}
+                      <View key={c} style={{
+                        flex: 1, height: ROW - 8, marginLeft: joinL ? 0 : 1.5, marginRight: joinR ? 0 : 1.5,
+                        borderTopLeftRadius: joinL ? 0 : r, borderBottomLeftRadius: joinL ? 0 : r, borderTopRightRadius: joinR ? 0 : r, borderBottomRightRadius: joinR ? 0 : r,
+                        backgroundColor: a != null ? col : p != null ? `${col}26` : t.surface2,
+                        borderWidth: p != null && a == null ? 1.5 : 0, borderColor: col,
+                        borderLeftWidth: p != null && a == null && joinL ? 0 : p != null && a == null ? 1.5 : 0,
+                        borderRightWidth: p != null && a == null && joinR ? 0 : p != null && a == null ? 1.5 : 0,
+                      }}>
+                        {a != null && p != null && <View style={{ position: 'absolute', top: 4, left: 5, right: 5, height: 3, borderRadius: 2, backgroundColor: t.bg, opacity: 0.45 }} />}
                       </View>
                     );
                   })}
@@ -168,10 +185,12 @@ export default function Plan() {
         <Txt v="label">Three lines a day</Txt>
         {diary.map((v, i) => (
           <TextInput key={i} value={v} onChangeText={(x) => saveLine(i, x)} onEndEditing={commitDiary} onBlur={commitDiary}
-            placeholder={['What went well', 'What was hard', 'Tomorrow I will'][i]} placeholderTextColor={t.muted}
+            placeholder={tr(['What went well', 'What was hard', 'Tomorrow I will'][i])} placeholderTextColor={t.muted}
             style={{ minHeight: 48, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, paddingHorizontal: space(3), fontFamily: font.body, fontSize: 15 }} />
         ))}
       </Card>
     </ScrollView>
   );
 }
+
+export default withBoundary(Plan, 'Plan');

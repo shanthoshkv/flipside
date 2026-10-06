@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addTask } from '../db';
 import { useData } from '../data';
 import { useSettings } from '../store';
+import { tr } from '../i18n';
 import { categoryColors, font, radius, space, useTheme } from '../theme';
 import { Stepper } from './controls';
 import { FlipIllustration } from './FlipIllustration';
@@ -33,7 +34,7 @@ export function Onboarding() {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: space(4) }}>
             <FlipIllustration armed />
             <Txt v="h1" style={{ textAlign: 'center' }}>Flip to focus</Txt>
-            <Txt style={{ textAlign: 'center' }}>Tap Ready, then lay your phone screen-down. The timer starts after a second. Lift it to stop, or turn on Pause in Settings to resume by flipping back.</Txt>
+            <Txt style={{ textAlign: 'center' }}>Choose what you are studying, then lay your phone screen-down. The timer starts after a second. Lift it to stop, or turn on Pause in Settings to resume by flipping back.</Txt>
             <Txt v="small" style={{ textAlign: 'center' }}>Everything stays on this phone. No account, no internet.</Txt>
           </View>
         )}
@@ -42,7 +43,7 @@ export function Onboarding() {
           <View style={{ flex: 1, justifyContent: 'center', gap: space(4) }}>
             <Txt v="h1">What are you studying?</Txt>
             <Txt>Add your first subject. You can add topics, exams and more later in the Study tab.</Txt>
-            <TextInput value={name} onChangeText={setName} placeholder="e.g. Physics" placeholderTextColor={t.muted} accessibilityLabel="First subject name"
+            <TextInput value={name} onChangeText={setName} placeholder={tr('e.g. Physics')} placeholderTextColor={t.muted} accessibilityLabel="First subject name"
               style={{ minHeight: 52, borderRadius: radius.md, backgroundColor: t.surface, color: t.text, paddingHorizontal: space(4), fontFamily: font.body, fontSize: 16 }} />
             <Stepper label="Daily goal" value={cfg.goalMin / 60} unit="h" min={0.5} max={16} step={0.5} onChange={(h) => cfg.set('goalMin', Math.round(h * 60))} />
           </View>

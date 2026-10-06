@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Modal, Pressable, ScrollView, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AmbientPicker } from '../../components/AmbientPicker';
@@ -16,7 +16,9 @@ import { PRESETS } from '../../presets';
 import { totalMs } from '../../stats';
 import { useSettings, weeklyGoal } from '../../store';
 import { font, radius, space, useTheme } from '../../theme';
+import { tr } from '../../i18n';
 import { dayKey, daysUntil, fmtClock, fmtDur, startOfDay, startOfWeek } from '../../util';
+import { withBoundary } from '../../components/ErrorBoundary';
 
 function PulseDot({ paused }: { paused?: boolean }) {
   const o = useSharedValue(1);
@@ -25,7 +27,7 @@ function PulseDot({ paused }: { paused?: boolean }) {
   return <Animated.View style={[{ width: 10, height: 10, borderRadius: paused ? 2 : 5, backgroundColor: paused ? '#5A5A68' : '#FF6B6B' }, s]} />;
 }
 
-export default function TimerScreen() {
+function TimerScreen() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { tasks, sessions, exams, cards } = useData();
   const dueCards = cards.filter((c) => c.due <= Date.now()).length;
@@ -37,6 +39,18 @@ export default function TimerScreen() {
   const sel = f.status !== 'IDLE' ? (f.taskId ?? 0) : want === 0 ? 0 : (tasks.find((k) => k.id === want)?.id ?? tasks.find((k) => !k.parent_id)?.id ?? 0);
   const task = tasks.find((k) => k.id === sel);
   const active = f.status === 'RUNNING' || f.status === 'PAUSED';
+
+  // The timer listens whenever this tab is open: pick a task, put the phone face-down, it starts.
+  const [focused, setFocused] = useState(false);
+  const selRef = useRef(sel);
+  selRef.current = sel;
+  useFocusEffect(useCallback(() => {
+    setFocused(true);
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active' && useFlip.getState().status === 'IDLE') useFlip.getState().arm(selRef.current); });
+    return () => { sub.remove(); setFocused(false); useFlip.getState().cancel(); };
+  }, []));
+  useEffect(() => { if (focused && f.status === 'IDLE' && f.reflectId == null && !f.parked) f.arm(sel); }, [focused, f.status, f.reflectId, f.parked]);
+  useEffect(() => { if (f.status === 'ARMED') f.setTask(sel); }, [sel]);
 
   const live = f.status === 'RUNNING' && f.phase === 'focus' ? f.now - f.phaseStart : 0;
   const { today, week } = useMemo(() => {
@@ -56,8 +70,10 @@ export default function TimerScreen() {
   const len = (f.phase === 'focus' ? focusMin : cfg.breakMin) * 60000;
   const shown = f.status === 'RUNNING' ? (pomo ? Math.max(0, len - (f.now - f.phaseStart)) : f.acc + f.now - f.startTs)
     : f.status === 'PAUSED' ? f.acc : pomo ? focusMin * 60000 : 0;
-  const hint = f.status === 'ARMED' ? (touchToStart ? 'Tap Start when you are ready.' : 'Flip your phone face-down to start.')
-    : touchToStart ? 'Touch-to-start is on.' : canPause ? 'Place it screen-down. Lift to pause, flip back to resume.' : 'Place it screen-down. Lift it to stop.';
+  const hint = f.parked ? 'Paused listening to save battery.'
+    : touchToStart ? 'Choose a task, then tap Start.'
+    : canPause ? 'Choose a task, then put your phone face-down. Lift to pause, flip back to resume.'
+    : 'Choose a task, then put your phone face-down to start. Lift it to stop.';
   const wGoal = weeklyGoal(cfg) * 60000;
 
   return (
@@ -65,17 +81,17 @@ export default function TimerScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: space(6), gap: space(5) }}>
         <View style={{ paddingHorizontal: space(4) }}><Txt v="h1">Flipside</Txt></View>
 
-        <TaskPicker tasks={tasks} selected={sel} disabled={f.status !== 'IDLE'} onSelect={(id) => cfg.set('lastTaskId', id)} />
+        <TaskPicker tasks={tasks} selected={sel} disabled={active} onSelect={(id) => cfg.set('lastTaskId', id)} />
 
         <View style={{ alignItems: 'center', gap: space(1) }}>
           <Txt maxFontSizeMultiplier={1.15} style={{ fontFamily: font.headBold, fontSize: 88, lineHeight: 96, fontVariant: ['tabular-nums'] }} accessibilityLabel={`Timer ${fmtClock(shown)}`}>{fmtClock(shown)}</Txt>
-          <Txt v="label">{task ? (task.parent_id ? `${tasks.find((k) => k.id === task.parent_id)?.name ?? ''} › ${task.name}` : task.name) : 'Focus'}{pomo ? ` · ${f.phase}` : ''}</Txt>
+          <Txt v="label" raw>{`${task ? (task.parent_id ? `${tasks.find((k) => k.id === task.parent_id)?.name ?? ''} › ${task.name}` : task.name) : tr('Focus')}${pomo ? ` · ${tr(f.phase === 'focus' ? 'Focus' : 'Break')}` : ''}`}</Txt>
         </View>
 
         <View style={{ paddingHorizontal: space(4), gap: space(2) }}>
-          <Segmented<Mode> disabled={f.status !== 'IDLE'} value={f.mode} onChange={f.setMode}
+          <Segmented<Mode> disabled={active} value={f.mode} onChange={f.setMode}
             options={[{ v: 'stopwatch', label: 'Stopwatch' }, { v: 'pomodoro', label: 'Pomodoro' }, { v: 'flowtime', label: 'Flowtime' }]} />
-          {pomo && f.status === 'IDLE' && (
+          {pomo && !active && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
               {PRESETS.map((p) => {
                 const on = cfg.focusMin === p.focus && cfg.breakMin === p.brk;
@@ -88,7 +104,7 @@ export default function TimerScreen() {
               })}
             </ScrollView>
           )}
-          {f.mode === 'flowtime' && f.status === 'IDLE' && <Txt v="small">Work until you naturally stop. Flipside then suggests a break in proportion (about a fifth of your focus).</Txt>}
+          {f.mode === 'flowtime' && !active && <Txt v="small">Work until you naturally stop. Flipside then suggests a break in proportion (about a fifth of your focus).</Txt>}
         </View>
 
         <View style={{ paddingHorizontal: space(4), gap: 6 }}>
@@ -102,9 +118,8 @@ export default function TimerScreen() {
         </View>
 
         <View style={{ paddingHorizontal: space(4), gap: space(2) }}>
-          {f.status === 'IDLE' && <Btn label="Ready" onPress={() => f.arm(sel)} />}
           {f.status === 'ARMED' && touchToStart && <Btn label="Start" onPress={f.begin} />}
-          {f.status === 'ARMED' && <Btn kind="ghost" label="Cancel" onPress={f.cancel} />}
+          {f.parked && f.status === 'IDLE' && <Btn kind="ghost" label="Listen again" onPress={() => f.arm(sel)} />}
         </View>
 
         <Pressable accessibilityRole="button" accessibilityLabel="Open today's sessions" onPress={() => { tap(); setDay(dayKey(Date.now())); }}>
@@ -122,7 +137,7 @@ export default function TimerScreen() {
 
         {dueCards > 0 && (
           <Card i={2} style={{ marginHorizontal: space(4), flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View><Txt v="label">Flashcards</Txt><Txt v="h3">{dueCards} due</Txt></View>
+            <View><Txt v="label">Flashcards</Txt><Txt v="h3">{tr('{n} due', { n: dueCards })}</Txt></View>
             <Btn label="Review" onPress={() => router.push('/review')} />
           </Card>
         )}
@@ -131,8 +146,8 @@ export default function TimerScreen() {
           <Card i={2} style={{ marginHorizontal: space(4), gap: 6 }}>
             <Txt v="label">Next exam</Txt>
             <Pressable onPress={() => router.navigate('/study')}>
-              <Txt v="h3">{next.name} · {next.days === 0 ? 'today' : `${next.days} day${next.days === 1 ? '' : 's'}`}</Txt>
-              <Txt v="small">{next.total ? `${next.done}/${next.total} topics covered` : 'Add topics in Study to track coverage'}</Txt>
+              <Txt v="h3" raw>{`${next.name} · ${next.days === 0 ? tr('today') : next.days === 1 ? tr('1 day') : tr('{n} days', { n: next.days })}`}</Txt>
+              <Txt v="small">{next.total ? tr('{done}/{total} topics covered', { done: next.done, total: next.total }) : 'Add topics in Study to track coverage'}</Txt>
             </Pressable>
           </Card>
         )}
@@ -144,7 +159,7 @@ export default function TimerScreen() {
         <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', gap: space(3) }}>
           <PulseDot paused={f.status === 'PAUSED'} />
           <Txt style={{ fontFamily: font.head, fontSize: 40, color: '#4A4A58', fontVariant: ['tabular-nums'] }}>{fmtClock(shown)}</Txt>
-          <Txt v="small" c="#3A3A46">{f.status === 'PAUSED' ? 'Paused' : task?.name}{pomo ? ` · ${f.phase} ${f.cycle}/${cfg.cycles}` : ''}</Txt>
+          <Txt v="small" c="#3A3A46" raw>{`${f.status === 'PAUSED' ? tr('Paused') : task?.name ?? ''}${pomo ? ` · ${tr(f.phase === 'focus' ? 'Focus' : 'Break')} ${f.cycle}/${cfg.cycles}` : ''}`}</Txt>
           {touchToStart && (
             <View style={{ marginTop: space(8), gap: space(2) }}>
               {canPause && (f.status === 'RUNNING' ? <Btn kind="ghost" label="Pause" onPress={f.pause} /> : <Btn kind="ghost" label="Resume" onPress={f.resume} />)}
@@ -156,3 +171,5 @@ export default function TimerScreen() {
     </View>
   );
 }
+
+export default withBoundary(TimerScreen, 'Timer');

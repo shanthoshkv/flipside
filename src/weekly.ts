@@ -4,6 +4,7 @@ import { addDays, DAY, startOfDay } from './util.ts';
 export interface RSession extends Seg { quality?: number | null; breaks?: number }
 export interface WeeklyInput {
   sessions: RSession[]; now: number; weeklyGoalMs: number; rootOf: (id: number) => number;
+  range?: { from: number; to: number }; // calendar week to review; default is the 7 days ending today
   subjects: { id: number; name: string }[]; exams: { subjectId: number; days: number; name: string }[]; cardsReviewed: number;
 }
 
@@ -12,10 +13,10 @@ const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length
 
 /** Rolling 7 days ending today vs the 7 before it. Pure, so the logic is checkable. */
 export function weeklyReview(o: WeeklyInput) {
-  const to = addDays(startOfDay(o.now), 1), from = addDays(to, -7), prevFrom = addDays(to, -14);
+  const to = o.range?.to ?? addDays(startOfDay(o.now), 1), from = o.range?.from ?? addDays(to, -7), prevFrom = addDays(from, -7);
   const inWin = (s: RSession, a: number, b: number) => s.start_ts < b && end(s) > a;
   const cur = totalMs(o.sessions, from, to), prev = totalMs(o.sessions, prevFrom, from);
-  const days = dailyTotals(o.sessions, o.now, 7);
+  const days = dailyTotals(o.sessions, to - 1, 7);
   const best = days.reduce((b, d) => (d.ms > b.ms ? d : b), days[0]);
   const week = o.sessions.filter((s) => inWin(s, from, to));
   const bySub = new Map<number, number>();
@@ -37,15 +38,23 @@ export function weeklyReview(o: WeeklyInput) {
 
   const goalPct = o.weeklyGoalMs ? cur / o.weeklyGoalMs : 1;
   const delta = prev > 0 ? (cur - prev) / prev : null;
-  let suggestion: string;
-  if (neglected) suggestion = `${subName(neglected.subjectId)} has had no focus for ${neglected.since === Infinity ? 'a while' : `${neglected.since} days`} and ${neglected.name} is in ${neglected.days} day${neglected.days === 1 ? '' : 's'}. Plan a block for it soon.`;
-  else if (goalPct < 0.7) suggestion = `You reached ${Math.round(goalPct * 100)}% of your weekly goal. About ${Math.max(5, Math.ceil((o.weeklyGoalMs - cur) / 7 / 300000) * 5)} more minutes a day closes the gap.`;
-  else if (delta != null && delta >= 0.1) suggestion = `Up ${Math.round(delta * 100)}% on last week. Keep that rhythm.`;
-  else suggestion = 'A steady week. Keep it going.';
+  // English text for tests; key + vars let the UI translate it
+  let key: string, vars: Record<string, string | number>;
+  if (neglected) {
+    const lonely = neglected.since === Infinity;
+    key = lonely ? '{subject} has had no focus for a while and {exam} is in {days} days. Plan a block for it soon.' : '{subject} has had no focus for {since} days and {exam} is in {days} days. Plan a block for it soon.';
+    vars = { subject: subName(neglected.subjectId), since: neglected.since, exam: neglected.name, days: neglected.days };
+  } else if (goalPct < 0.7) {
+    key = 'You reached {pct}% of your weekly goal. About {min} more minutes a day closes the gap.';
+    vars = { pct: Math.round(goalPct * 100), min: Math.max(5, Math.ceil((o.weeklyGoalMs - cur) / 7 / 300000) * 5) };
+  } else if (delta != null && delta >= 0.1) {
+    key = 'Up {pct}% on last week. Keep that rhythm.'; vars = { pct: Math.round(delta * 100) };
+  } else { key = 'A steady week. Keep it going.'; vars = {}; }
+  const suggestion = key.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 
   return {
     cur, prev, delta, goalPct, activeDays: days.filter((d) => d.ms > 0).length, best: best.ms > 0 ? best : null,
     top: top ? { id: top[0], ms: top[1] } : null, quality: q, qualityPrev: qPrev,
-    pickups: week.reduce((n, s) => n + (s.breaks ?? 0), 0), sessions: week.length, cardsReviewed: o.cardsReviewed, suggestion,
+    pickups: week.reduce((n, s) => n + (s.breaks ?? 0), 0), sessions: week.length, cardsReviewed: o.cardsReviewed, suggestion, suggestionKey: key, suggestionVars: vars,
   };
 }

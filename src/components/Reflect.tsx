@@ -3,6 +3,7 @@ import { Modal, Pressable, TextInput, View } from 'react-native';
 import { rateSession } from '../db';
 import { useData } from '../data';
 import { useFlip } from '../engine/flip';
+import { tr } from '../i18n';
 import { fmtDur } from '../util';
 import { font, radius, space, useTheme } from '../theme';
 import { Btn, Txt, tap } from './ui';
@@ -25,7 +26,7 @@ export function Reflect() {
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }}>
         <View style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(5), gap: space(4) }}>
           <Txt v="h2">How was that focus?</Txt>
-          {run && <Txt v="small">You focused for {fmtDur(run.ms)}.{run.mode === 'flowtime' ? ` Suggested break: ${breakMin} min.` : ''}</Txt>}
+          {run && <Txt v="small" raw>{`${tr('You focused for {t}.', { t: fmtDur(run.ms) })}${run.mode === 'flowtime' ? ` ${tr('Suggested break: {n} min.', { n: breakMin })}` : ''}`}</Txt>}
           <View style={{ flexDirection: 'row', gap: space(2) }}>
             {FACES.map((f, i) => {
               const on = q === i + 1;
@@ -38,7 +39,7 @@ export function Reflect() {
               );
             })}
           </View>
-          <TextInput value={note} onChangeText={setNote} placeholder="What did you cover? (optional)" placeholderTextColor={t.muted} multiline
+          <TextInput value={note} onChangeText={setNote} placeholder={tr('What did you cover? (optional)')} placeholderTextColor={t.muted} multiline
             style={{ minHeight: 64, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, padding: space(3), fontFamily: font.body, fontSize: 15, textAlignVertical: 'top' }} />
           <View style={{ flexDirection: 'row', gap: space(2) }}>
             <Btn kind="ghost" label="Skip" onPress={() => close(false)} style={{ flex: 1 }} />

@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { getSettings, setSetting } from './db';
 import type { Sound } from './engine/ambient';
 import type { Thresh } from './engine/detect';
+import type { FontPref } from './fonts';
+import type { AccentPref } from './palette';
+import { set24h, setWeekStart } from './util';
 
 export type Sensitivity = 'low' | 'medium' | 'high';
 export type ThemePref = 'auto' | 'dark' | 'light';
@@ -15,6 +18,8 @@ export interface Settings {
   scheduler: 'fsrs' | 'sm2'; retention: number; newPerDay: number; reviewsPerDay: number;
   remindPlan: boolean; remindStreak: boolean; remindWeekly: boolean; quietStart: number; quietEnd: number;
   backupDir: string | null; lastBackup: number;
+  fontPref: FontPref; accent: AccentPref; textScale: number; pomoBeep: boolean;
+  vibrate: boolean; haptics: boolean; keepAwake: boolean; weekStart: 'mon' | 'sun'; clock24: boolean; lastError: string;
   loaded: boolean;
 }
 const defaults: Settings = {
@@ -27,8 +32,15 @@ const defaults: Settings = {
   scheduler: 'fsrs', retention: 90, newPerDay: 20, reviewsPerDay: 200,
   remindPlan: false, remindStreak: false, remindWeekly: false, quietStart: 22, quietEnd: 7,
   backupDir: null, lastBackup: 0,
+  fontPref: 'default', accent: 'amber', textScale: 1, pomoBeep: true,
+  vibrate: true, haptics: true, keepAwake: true, weekStart: 'mon', clock24: true, lastError: '',
   loaded: false,
 };
+/** Settings the pure helpers in util.ts need to know about. */
+function applyUtil(s: Partial<Settings>) {
+  if (s.weekStart) setWeekStart(s.weekStart === 'sun' ? 0 : 1);
+  if (s.clock24 !== undefined) set24h(s.clock24);
+}
 interface Store extends Settings { load(): Promise<void>; set<K extends keyof Settings>(k: K, v: Settings[K]): void }
 
 export const useSettings = create<Store>((set) => ({
@@ -40,9 +52,11 @@ export const useSettings = create<Store>((set) => ({
       if (k in raw) next[k] = JSON.parse(raw[k]);
     }
     set({ ...next, loaded: true });
+    applyUtil(next as Partial<Settings>);
   },
   set(k, v) {
     set({ [k]: v } as Partial<Store>);
+    applyUtil({ [k]: v } as Partial<Settings>);
     if (k !== 'loaded') setSetting(k, JSON.stringify(v));
   },
 }));

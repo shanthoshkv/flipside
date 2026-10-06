@@ -87,6 +87,7 @@ export const sessionsBetween = async (from: number, to: number) => (await db()).
 
 // plans
 export const plansForDate = async (date: string) => (await db()).getAllAsync<Plan>('SELECT * FROM plans WHERE date=?', date);
+export const plansBetween = async (from: string, to: string) => (await db()).getAllAsync<Plan>('SELECT * FROM plans WHERE date>=? AND date<=? ORDER BY date, slot', from, to);
 export const clearPlans = async (date: string) => void (await (await db()).runAsync('DELETE FROM plans WHERE date=?', date));
 export async function setPlan(taskId: number, date: string, slot: number, on: boolean) {
   const d = await db();
@@ -112,6 +113,10 @@ export async function saveReview(id: number, s: { due: number; ease: number; int
 }
 export async function newIntroducedSince(ts: number) {
   const r = await (await db()).getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM (SELECT card_id, MIN(ts) AS m FROM reviews GROUP BY card_id) WHERE m>=?', ts);
+  return r?.n ?? 0;
+}
+export async function reviewsBetween(from: number, to: number) {
+  const r = await (await db()).getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM reviews WHERE ts>=? AND ts<?', from, to);
   return r?.n ?? 0;
 }
 export async function reviewedSince(ts: number) {

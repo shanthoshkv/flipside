@@ -1,0 +1,36 @@
+# Template for fdroiddata. Replace the repository URL, then open a merge request at
+# https://gitlab.com/fdroid/fdroiddata with this file as metadata/com.flipside.focus.yml
+Categories:
+  - Science & Education
+License: MIT
+AuthorName: Flipside contributors
+WebSite: https://github.com/YOUR_USER/flipside
+SourceCode: https://github.com/YOUR_USER/flipside
+IssueTracker: https://github.com/YOUR_USER/flipside/issues
+
+AutoName: Flipside
+Summary: Flip your phone face-down to focus. Plan, track and remember, fully offline.
+Description: |-
+  Flipside starts a study timer when you lay your phone screen-down and stops when you
+  pick it up. It includes planning, exams, spaced-repetition flashcards, stats and
+  widgets. No account, no ads, no analytics and no internet permission.
+
+RepoType: git
+Repo: https://github.com/YOUR_USER/flipside.git
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    # Expo prebuild generates the android/ project; F-Droid builds it from source.
+    prebuild:
+      - npm install
+      - npx expo prebuild --platform android --no-install
+    subdir: android/app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

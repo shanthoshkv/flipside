@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import { deleteSession, getDiary, type Diary, type Session, type Task } from '../db';
 import { useData } from '../data';
+import { tr } from '../i18n';
 import { radius, space, useTheme } from '../theme';
-import { addDays, fmtDate, fmtDur, keyToTs, pad2 } from '../util';
+import { addDays, fmtDate, fmtDur, fmtTod, keyToTs } from '../util';
 import { SessionEditor } from './SessionEditor';
 import { Btn, Txt, tap } from './ui';
 
-const hm = (ts: number) => `${pad2(new Date(ts).getHours())}:${pad2(new Date(ts).getMinutes())}`;
+const hm = (ts: number) => fmtTod(new Date(ts).getHours(), new Date(ts).getMinutes());
 const FACE = ['', 'Rough', 'Meh', 'Okay', 'Good', 'Deep'];
 
 /** One day: sessions with quality + notes (edit, delete, add) and the three-line diary. */
@@ -24,14 +25,14 @@ export function DayDetail({ day, sessions, tasks, onClose }: { day: string | nul
   const pickups = list.reduce((n, s) => n + (s.breaks ?? 0), 0);
   const name = (id: number) => {
     const k = tasks.find((x) => x.id === id);
-    if (!k) return id === 0 ? 'Focus' : 'Deleted task';
+    if (!k) return id === 0 ? tr('Focus') : tr('Deleted task');
     const p = k.parent_id ? tasks.find((x) => x.id === k.parent_id) : null;
     return p ? `${p.name} › ${k.name}` : k.name;
   };
   const lines = diary ? [diary.l1, diary.l2, diary.l3].filter(Boolean) : [];
-  const del = (s: Session) => Alert.alert('Delete this session?', 'This removes its time from your stats.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: async () => { await deleteSession(s.id); await useData.getState().reload(); } },
+  const del = (s: Session) => Alert.alert(tr('Delete this session?'), tr('This removes its time from your stats.'), [
+    { text: tr('Cancel'), style: 'cancel' },
+    { text: tr('Delete'), style: 'destructive', onPress: async () => { await deleteSession(s.id); await useData.getState().reload(); } },
   ]);
 
   return (
@@ -47,7 +48,7 @@ export function DayDetail({ day, sessions, tasks, onClose }: { day: string | nul
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <Txt v="h2">{fmtDate(day)}</Txt><Txt v="h3" c={t.accentText}>{fmtDur(total)}</Txt>
               </View>
-              {pickups > 0 && <Txt v="small">Phone pickups mid-session: {pickups}</Txt>}
+              {pickups > 0 && <Txt v="small">{tr('Phone pickups mid-session: {n}', { n: pickups })}</Txt>}
               <ScrollView contentContainerStyle={{ gap: space(3) }}>
                 {list.length === 0 && <Txt v="small">No focus sessions this day.</Txt>}
                 {list.map((s) => {
@@ -55,10 +56,10 @@ export function DayDetail({ day, sessions, tasks, onClose }: { day: string | nul
                   return (
                     <View key={s.id} style={{ backgroundColor: t.surface2, borderRadius: radius.md, padding: space(3), gap: 4 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Txt v="h3" style={{ flex: 1 }}>{name(s.task_id)}</Txt><Txt v="small">{fmtDur(e - s.start_ts)}</Txt>
+                        <Txt v="h3" raw style={{ flex: 1 }}>{name(s.task_id)}</Txt><Txt v="small">{fmtDur(e - s.start_ts)}</Txt>
                       </View>
-                      <Txt v="small">{hm(s.start_ts)} – {hm(e)}{s.quality ? ` · focus ${s.quality}/5 ${FACE[s.quality]}` : ''}{s.breaks ? ' · paused' : ''}{s.mode === 'manual' ? ' · added by hand' : ''}</Txt>
-                      {!!s.note && <Txt>{s.note}</Txt>}
+                      <Txt v="small" raw>{`${hm(s.start_ts)} – ${hm(e)}${s.quality ? ` · ${tr('focus {q}/5', { q: s.quality })} ${tr(FACE[s.quality])}` : ''}${s.breaks ? ` · ${tr('paused')}` : ''}${s.mode === 'manual' ? ` · ${tr('added by hand')}` : ''}`}</Txt>
+                      {!!s.note && <Txt raw>{s.note}</Txt>}
                       {s.end_ts != null && (
                         <View style={{ flexDirection: 'row', gap: space(2), marginTop: 4 }}>
                           <Pressable accessibilityLabel="Edit session" onPress={() => { tap(); setEdit({ s }); }} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: space(2) }}><Txt v="h3" c={t.accentText}>Edit</Txt></Pressable>
@@ -71,7 +72,7 @@ export function DayDetail({ day, sessions, tasks, onClose }: { day: string | nul
                 {lines.length > 0 && (
                   <View style={{ gap: 4 }}>
                     <Txt v="label">Three lines</Txt>
-                    {lines.map((l, i) => <Txt key={i}>• {l}</Txt>)}
+                    {lines.map((l, i) => <Txt key={i} raw>{`• ${l}`}</Txt>)}
                   </View>
                 )}
               </ScrollView>

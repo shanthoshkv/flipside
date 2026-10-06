@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { Easing, type SharedValue, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop, Text as SText } from 'react-native-svg';
 import { font, useTheme } from '../theme';
@@ -50,18 +50,27 @@ export function BarChart({ data, goal, height = 140, onSelect, unit }: { data: {
   const max = Math.max(goal ?? 0, ...data.map((d) => d.ms), 1), bw = w / data.length, plot = height - 22;
   const summary = data.map((d) => (unit ? `${d.label}: ${d.ms} ${unit}` : `${d.label} ${Math.round(d.ms / 60000)} minutes`)).join(', ');
   return (
-    <View onLayout={onLayout} accessible accessibilityRole="image" accessibilityLabel={unit ? `Chart: ${summary}` : `Focus per day: ${summary}`}>
-      <Svg width={w} height={height}>
-        {goal ? <Rect x={0} y={plot - (goal / max) * plot} width={w} height={1} fill={t.muted} opacity={0.35} /> : null}
-        {data.map((d, i) => (
-          <Bar key={i} i={i} p={p} x={i * bw + bw * 0.18} w={bw * 0.64} base={plot}
-            h={Math.max(d.ms > 0 ? 4 : 2, (d.ms / max) * plot)} fill={d.ms === 0 ? t.surface2 : d.hot ? t.accentB : t.accentA} />
-        ))}
-        {onSelect && data.map((_, i) => <Rect key={`h${i}`} x={i * bw} y={0} width={bw} height={height} fill="transparent" onPress={() => onSelect(i)} />)}
-        {data.map((d, i) => (
-          <SText key={`l${i}`} x={i * bw + bw / 2} y={height - 4} fontSize={11} fontFamily={font.body} fill={t.muted} textAnchor="middle">{d.label}</SText>
-        ))}
-      </Svg>
+    <View onLayout={onLayout}>
+      <View accessible={!onSelect} accessibilityRole={onSelect ? undefined : 'image'} accessibilityLabel={onSelect ? undefined : unit ? `Chart: ${summary}` : `Focus per day: ${summary}`}>
+        <Svg width={w} height={height}>
+          {goal ? <Rect x={0} y={plot - (goal / max) * plot} width={w} height={1} fill={t.muted} opacity={0.35} /> : null}
+          {data.map((d, i) => (
+            <Bar key={i} i={i} p={p} x={i * bw + bw * 0.18} w={bw * 0.64} base={plot}
+              h={Math.max(d.ms > 0 ? 4 : 2, (d.ms / max) * plot)} fill={d.ms === 0 ? t.surface2 : d.hot ? t.accentB : t.accentA} />
+          ))}
+          {data.map((d, i) => (
+            <SText key={`l${i}`} x={i * bw + bw / 2} y={height - 4} fontSize={11} fontFamily={font.body} fill={t.muted} textAnchor="middle">{d.label}</SText>
+          ))}
+        </Svg>
+      </View>
+      {onSelect && (
+        <View style={{ position: 'absolute', left: 0, top: 0, width: w, height, flexDirection: 'row' }}>
+          {data.map((d, i) => (
+            <Pressable key={i} style={{ flex: 1 }} accessibilityRole="button"
+              accessibilityLabel={unit ? `${d.label}: ${d.ms} ${unit}` : `${d.label}: ${Math.round(d.ms / 60000)} minutes. Open day`} onPress={() => onSelect(i)} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -89,16 +98,23 @@ export function Heatmap({ days, weeks = 15, onSelect }: { days: { key: string; m
   const cell = w / weeks, max = Math.max(...days.map((d) => d.ms), 1);
   const lead = days.length ? new Date(days[0].key.replace(/-/g, '/')).getDay() : 0;
   const all = [...Array(lead).fill(null), ...days] as ({ key: string; ms: number } | null)[];
+  const pick = (x: number, y: number) => {
+    const d = all[Math.floor(x / cell) * 7 + Math.floor(y / cell)];
+    if (d && onSelect) onSelect(d.key);
+  };
   return (
     <View onLayout={onLayout}>
-      <Animated.View style={fade}>
-        <Svg width={w} height={cell * 7}>
-          {all.map((d, i) => d && (
-            <Rect key={i} x={Math.floor(i / 7) * cell + 1.5} y={(i % 7) * cell + 1.5} width={cell - 3} height={cell - 3} rx={cell * 0.28}
-              fill={d.ms > 0 ? t.accentA : t.surface2} opacity={d.ms > 0 ? 0.25 + Math.ceil((d.ms / max) * 4) * 0.19 : 1} onPress={onSelect ? () => onSelect(d.key) : undefined} />
-          ))}
-        </Svg>
-      </Animated.View>
+      <Pressable disabled={!onSelect} accessibilityRole="image" accessibilityLabel="Focus heatmap of the last 15 weeks. Use Open any day to read a specific day."
+        onPress={(e) => pick(e.nativeEvent.locationX, e.nativeEvent.locationY)}>
+        <Animated.View style={fade}>
+          <Svg width={w} height={cell * 7}>
+            {all.map((d, i) => d && (
+              <Rect key={i} x={Math.floor(i / 7) * cell + 1.5} y={(i % 7) * cell + 1.5} width={cell - 3} height={cell - 3} rx={cell * 0.28}
+                fill={d.ms > 0 ? t.accentA : t.surface2} opacity={d.ms > 0 ? 0.25 + Math.ceil((d.ms / max) * 4) * 0.19 : 1} />
+            ))}
+          </Svg>
+        </Animated.View>
+      </Pressable>
     </View>
   );
 }

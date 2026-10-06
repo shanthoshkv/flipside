@@ -1,20 +1,26 @@
 import { FlexWidget, SvgWidget, TextWidget, type ColorProp } from 'react-native-android-widget';
-import { listTasks, migrate, sessionsBetween, getSettings } from '../db';
+import { listCards, listExams, listTasks, migrate, sessionsBetween, getSettings } from '../db';
 import { dailyTotals, streaks, totalMs, WEEKDAY } from '../stats';
-import { addDays, fmtDur, startOfDay } from '../util';
+import { addDays, daysUntil, fmtDur, startOfDay } from '../util';
 
 const C: Record<string, ColorProp> = { bg: '#14141C', surface2: '#1C1C27', text: '#F4F4F8', muted: '#8B8BA0', a: '#FFB547', b: '#FF6B6B' };
 
 async function snapshot() {
   await migrate();
   const now = Date.now();
-  const [ss, st, tasks] = await Promise.all([sessionsBetween(addDays(startOfDay(now), -60), now + 86400000), getSettings(), listTasks()]);
+  const [ss, st, tasks, exams, cards] = await Promise.all([sessionsBetween(addDays(startOfDay(now), -60), now + 86400000), getSettings(), listTasks(), listExams(), listCards()]);
   const days = dailyTotals(ss, now, 7);
   const goalMin: number = st.goalMin ? JSON.parse(st.goalMin) : 240;
   const lastId: number | null = st.lastTaskId ? JSON.parse(st.lastTaskId) : null;
   const task = lastId === 0 ? null : tasks.find((t) => t.id === lastId) ?? tasks[0] ?? null;
   const all = dailyTotals(ss, now, 60);
+  const nextExam = exams.map((e) => ({ ...e, days: daysUntil(e.date) })).filter((e) => e.days >= 0).sort((a, b) => a.days - b.days)[0] ?? null;
+  const topics = nextExam ? tasks.filter((k) => k.parent_id === nextExam.task_id) : [];
+  const lastUsed = (id: number) => Math.max(0, ...ss.filter((s) => s.task_id === id).map((s) => s.end_ts ?? s.start_ts));
   return {
+    nextExam, examTopics: { total: topics.length, done: topics.filter((k) => k.done).length },
+    dueCards: cards.filter((c) => c.due <= now).length,
+    subjects: tasks.filter((k) => !k.parent_id).sort((a, b) => lastUsed(b.id) - lastUsed(a.id)).slice(0, 3),
     todayMs: days[6].ms, goalMs: goalMin * 60000, streak: streaks(all, st.restDay ? JSON.parse(st.restDay) : true).current, days, task,
     taskMs: task ? totalMs(ss.filter((s) => s.task_id === task.id), addDays(startOfDay(now), -6), now + 86400000) : 0,
   };
@@ -43,6 +49,46 @@ const Box = ({ children, uri }: { children: any; uri?: string }) => (
 
 export async function renderWidget(name: string, width: number) {
   const s = await snapshot();
+  if (name === 'Exam') {
+    const e = s.nextExam;
+    return (
+      <Box uri="flipside://study">
+        <FlexWidget style={{ alignItems: 'center', justifyContent: 'center', width: 'match_parent', height: 'match_parent' }}>
+          <TextWidget text="NEXT EXAM" style={{ fontSize: 10, fontWeight: '700', color: C.muted }} />
+          <TextWidget text={e ? (e.days === 0 ? 'Today' : `${e.days}d`) : '–'} style={{ fontSize: 30, fontWeight: '700', color: e && e.days <= 7 ? C.b : C.a }} />
+          <TextWidget text={e ? e.name : 'Add one in Study'} style={{ fontSize: 12, color: C.text }} maxLines={1} />
+          {e && s.examTopics.total > 0 && <TextWidget text={`${s.examTopics.done}/${s.examTopics.total} topics`} style={{ fontSize: 11, color: C.muted }} />}
+        </FlexWidget>
+      </Box>
+    );
+  }
+  if (name === 'Cards') {
+    return (
+      <Box uri="flipside://review">
+        <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent', height: 'match_parent' }}>
+          <TextWidget text={String(s.dueCards)} style={{ fontSize: 28, fontWeight: '700', color: s.dueCards ? C.a : C.muted, marginRight: 10 }} />
+          <FlexWidget style={{ flex: 1 }}>
+            <TextWidget text="cards due" style={{ fontSize: 14, fontWeight: '700', color: C.text }} />
+            <TextWidget text={s.dueCards ? 'Tap to review' : 'All caught up'} style={{ fontSize: 11, color: C.muted }} />
+          </FlexWidget>
+        </FlexWidget>
+      </Box>
+    );
+  }
+  if (name === 'Subjects') {
+    return (
+      <FlexWidget style={{ flexDirection: 'row', height: 'match_parent', width: 'match_parent', backgroundColor: C.bg, borderRadius: 24, padding: 8 }}>
+        {s.subjects.length === 0 && <TextWidget text="Add a subject in Flipside" style={{ fontSize: 13, color: C.muted, padding: 8 }} clickAction="OPEN_APP" />}
+        {s.subjects.map((k) => (
+          <FlexWidget key={k.id} clickAction="OPEN_URI" clickActionData={{ uri: `flipside://timer?task=${k.id}` }}
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface2, borderRadius: 16, padding: 8, marginHorizontal: 4 }}>
+            <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: k.color as ColorProp, marginRight: 6 }} />
+            <TextWidget text={k.name} style={{ fontSize: 13, fontWeight: '700', color: C.text }} maxLines={1} />
+          </FlexWidget>
+        ))}
+      </FlexWidget>
+    );
+  }
   if (name === 'QuickStart') {
     return (
       <Box uri={`flipside://timer?task=${s.task?.id ?? 0}`}>

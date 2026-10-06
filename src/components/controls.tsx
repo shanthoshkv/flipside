@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, Switch, View } from 'react-native';
 import { radius, space, useTheme } from '../theme';
 import { Txt, tap } from './ui';
 
@@ -18,6 +18,16 @@ export function Segmented<T extends string>({ options, value, onChange, disabled
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+export function SwitchRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space(3), minHeight: 48 }}>
+      <View style={{ flex: 1 }}><Txt>{label}</Txt>{!!hint && <Txt v="small">{hint}</Txt>}</View>
+      <Switch value={value} onValueChange={onChange} accessibilityLabel={label} trackColor={{ true: t.accentA, false: t.surface2 }} thumbColor="#fff" />
     </View>
   );
 }

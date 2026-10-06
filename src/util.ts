@@ -20,5 +20,12 @@ export const fmtDur = (ms: number) => {
 };
 export const fmtDate = (key: string) => key.split('-').reverse().join('-');
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-/** Monday 00:00 of the week containing ts */
-export const startOfWeek = (ts: number) => { const d = startOfDay(ts); const dow = (new Date(d).getDay() + 6) % 7; return addDays(d, -dow); };
+let weekStartDay = 1; // 1 = Monday, 0 = Sunday
+export const setWeekStart = (d: 0 | 1) => { weekStartDay = d; };
+/** 00:00 of the first day of the week containing ts */
+export const startOfWeek = (ts: number) => { const d = startOfDay(ts); const dow = (new Date(d).getDay() - weekStartDay + 7) % 7; return addDays(d, -dow); };
+
+let use24 = true;
+export const set24h = (v: boolean) => { use24 = v; };
+/** hour 0-23, minute 0-59, in the user's 12 or 24 hour style */
+export const fmtTod = (hour: number, min: number) => (use24 ? `${pad2(hour)}:${pad2(min)}` : `${hour % 12 || 12}:${pad2(min)} ${hour < 12 ? 'AM' : 'PM'}`);

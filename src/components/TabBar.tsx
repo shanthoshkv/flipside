@@ -2,7 +2,7 @@ import type { Tabs } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, type ComponentProps } from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { radius, space, useTheme } from '../theme';
@@ -24,7 +24,7 @@ const LABEL: Record<string, string> = { index: 'Timer', plan: 'Plan', study: 'St
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const t = useTheme(), { bottom } = useSafeAreaInsets(), [w, onLayout] = useWidth(360);
   const x = useSharedValue(0), n = state.routes.length, cw = (w - space(4) * 2) / n;
-  useEffect(() => { x.value = withSpring(state.index * cw, { damping: 16, stiffness: 180 }); }, [state.index, cw]);
+  useEffect(() => { x.value = withTiming(state.index * cw, { duration: 180, easing: Easing.out(Easing.cubic) }); }, [state.index, cw]);
   const pill = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View onLayout={onLayout} style={{ paddingBottom: bottom + space(2), paddingHorizontal: space(4), paddingTop: space(2), backgroundColor: t.bg }}>

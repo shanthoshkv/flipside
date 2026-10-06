@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import type { Task } from '../db';
+import { tr } from '../i18n';
 import { categoryColors, font, radius, space, useTheme } from '../theme';
 import { Btn, Txt, tap } from './ui';
 
@@ -29,7 +30,7 @@ export function TaskChips({ tasks, selected, onSelect, onAdd, disabled, allowNon
                 style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: space(4), borderRadius: radius.pill,
                   backgroundColor: on ? k.color : t.surface, borderWidth: 1, borderColor: on ? k.color : t.border, opacity: disabled && !on ? 0.4 : 1 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? '#1A1206' : k.color }} />
-                <Txt v="h3" c={on ? '#1A1206' : t.text}>{k.name}</Txt>
+                <Txt v="h3" raw c={on ? '#1A1206' : t.text}>{k.id === 0 ? tr('No task') : k.name}</Txt>
               </Pressable>
             </Animated.View>
           );
@@ -43,7 +44,7 @@ export function TaskChips({ tasks, selected, onSelect, onAdd, disabled, allowNon
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }} onPress={() => setOpen(false)}>
           <Pressable style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(5), gap: space(3) }}>
             <Txt v="h2">{simple ? 'New topic' : 'New subject'}</Txt>
-            {(simple ? [['Name', name, setName]] : [['Name', name, setName], ['Category (optional)', cat, setCat]]).map(([ph, val, fn]: any) => (
+            {(simple ? [[tr('Name'), name, setName]] : [[tr('Name'), name, setName], [tr('Category (optional)'), cat, setCat]]).map(([ph, val, fn]: any) => (
               <TextInput key={ph} value={val} onChangeText={fn} placeholder={ph} placeholderTextColor={t.muted}
                 style={{ minHeight: 48, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, paddingHorizontal: space(4), fontFamily: font.body, fontSize: 15 }} />
             ))}

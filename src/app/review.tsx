@@ -8,12 +8,14 @@ import { Btn, Txt, tap } from '../components/ui';
 import { newIntroducedSince, reviewedSince, saveReview, type Card } from '../db';
 import { useData } from '../data';
 import { GRADES, buildQueue, previews, schedule, type Grade } from '../engine/srs';
+import { tr } from '../i18n';
 import { useSettings } from '../store';
 import { font, radius, space, useTheme } from '../theme';
 import { startOfDay } from '../util';
+import { withBoundary } from '../components/ErrorBoundary';
 
 /** Review queue: due reviews then new cards (daily limits apply). "Again" cards return later this session. */
-export default function Review() {
+function Review() {
   const t = useTheme(), { top, bottom } = useSafeAreaInsets();
   const { task } = useLocalSearchParams<{ task?: string }>();
   const { cards, tasks, reload } = useData();
@@ -55,7 +57,7 @@ export default function Review() {
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(2), paddingBottom: bottom + space(3), paddingHorizontal: space(4), gap: space(4) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={{ minHeight: 48, justifyContent: 'center' }}><Txt v="h3" c={t.accentText}>‹ Back</Txt></Pressable>
-        <Txt v="label">{queue === null ? '' : cur ? `${queue.length} left` : 'Done'}</Txt>
+        <Txt v="label">{queue === null ? '' : cur ? tr('{n} left', { n: queue.length }) : 'Done'}</Txt>
       </View>
 
       {queue === null ? null : cur ? (
@@ -65,14 +67,14 @@ export default function Review() {
           </View>
           <Pressable disabled={show} onPress={() => { tap(); setShow(true); }} style={{ flex: 1, backgroundColor: t.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: t.border }}>
             <ScrollView contentContainerStyle={{ flexGrow: 1, padding: space(5), justifyContent: 'center', gap: space(4) }}>
-              {!!label(cur) && <Txt v="label" style={{ textAlign: 'center' }}>{label(cur)}</Txt>}
+              {!!label(cur) && <Txt v="label" raw style={{ textAlign: 'center' }}>{label(cur)}</Txt>}
               <Pic uri={cur.front_img} />
-              {!!cur.front && <Txt style={{ fontFamily: font.head, fontSize: 26, textAlign: 'center' }}>{cur.front}</Txt>}
+              {!!cur.front && <Txt raw style={{ fontFamily: font.head, fontSize: 26, textAlign: 'center' }}>{cur.front}</Txt>}
               {show && (
                 <>
                   <View style={{ height: 1, backgroundColor: t.border }} />
                   <Pic uri={cur.back_img} />
-                  {!!cur.back && <Txt style={{ fontSize: 20, textAlign: 'center', lineHeight: 28 }}>{cur.back}</Txt>}
+                  {!!cur.back && <Txt raw style={{ fontSize: 20, textAlign: 'center', lineHeight: 28 }}>{cur.back}</Txt>}
                 </>
               )}
               {!show && <Txt v="small" style={{ textAlign: 'center' }}>Tap to show answer</Txt>}
@@ -94,7 +96,7 @@ export default function Review() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: space(3) }}>
           <Txt v="h1">{total.current === 0 ? 'Nothing due' : 'All done'}</Txt>
           <Txt v="small" style={{ textAlign: 'center' }}>
-            {total.current === 0 ? 'Come back when cards are due, or add more.' : `${stats.current.done} reviews · ${stats.current.again} to relearn`}
+            {total.current === 0 ? 'Come back when cards are due, or add more.' : tr('{done} reviews · {again} to relearn', { done: stats.current.done, again: stats.current.again })}
           </Txt>
           <Btn label="Back" onPress={() => router.back()} />
         </View>
@@ -102,3 +104,5 @@ export default function Review() {
     </View>
   );
 }
+
+export default withBoundary(Review, 'Review');

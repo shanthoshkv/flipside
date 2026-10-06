@@ -74,3 +74,79 @@ export function actualSlots(ss: Seg[], dayStart: number) {
 
 export const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export { DAY };
+
+/** Sessions clipped to one day, as ms offsets from that day's start (for timeline / Gantt charts). */
+export function dayBlocks(ss: Seg[], dayStart: number) {
+  const dayEnd = addDays(dayStart, 1);
+  return ss
+    .filter((s) => s.start_ts < dayEnd && endOf(s) > dayStart)
+    .map((s) => ({ task_id: s.task_id, a: Math.max(s.start_ts, dayStart) - dayStart, b: Math.min(endOf(s), dayEnd) - dayStart }))
+    .sort((x, y) => x.a - y.a);
+}
+
+/** n days from `from`, each with its blocks and total */
+export function weekDays(ss: Seg[], from: number, n = 7) {
+  return Array.from({ length: n }, (_, i) => {
+    const ts = addDays(from, i), blocks = dayBlocks(ss, ts);
+    return { ts, key: dayKey(ts), blocks, ms: blocks.reduce((t, b) => t + (b.b - b.a), 0) };
+  });
+}
+
+/** per-day totals split by task group (rootOf maps a task to its subject); parts sorted by size */
+export function stackedDays(ss: Seg[], from: number, n: number, rootOf: (id: number) => number) {
+  return Array.from({ length: n }, (_, i) => {
+    const ts = addDays(from, i), to = addDays(ts, 1), m = new Map<number, number>();
+    for (const s of ss) {
+      const o = overlap(s, ts, to);
+      if (o > 0) m.set(rootOf(s.task_id), (m.get(rootOf(s.task_id)) ?? 0) + o);
+    }
+    const parts = [...m].sort((a, b) => b[1] - a[1]);
+    return { ts, key: dayKey(ts), parts, ms: parts.reduce((t, p) => t + p[1], 0) };
+  });
+}
+
+/** n weekly totals, oldest first, the last one starting at `lastWeekStart` */
+export const weeklyTotals = (ss: Seg[], lastWeekStart: number, n: number) =>
+  Array.from({ length: n }, (_, i) => {
+    const ts = addDays(lastWeekStart, (i - (n - 1)) * 7);
+    return { ts, ms: totalMs(ss, ts, addDays(ts, 7)) };
+  });
+
+/** average focus per weekday (index = Date.getDay()) over the last `weeks` full weeks incl. this one */
+export function weekdayAverage(ss: Seg[], now: number, weeks: number) {
+  const days = dailyTotals(ss, now, weeks * 7), sum = Array(7).fill(0), cnt = Array(7).fill(0);
+  for (const d of days) { const k = new Date(d.ts).getDay(); sum[k] += d.ms; cnt[k]++; }
+  return sum.map((v, k) => (cnt[k] ? v / cnt[k] : 0)) as number[];
+}
+
+/** biggest `max - 1` entries plus one "other" bucket (id = -1) so a pie never has dozens of slivers */
+export function pieData(entries: [number, number][], max = 7) {
+  const sorted = entries.filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (sorted.length <= max) return sorted.map(([id, ms]) => ({ id, ms }));
+  const head = sorted.slice(0, max - 1).map(([id, ms]) => ({ id, ms }));
+  return [...head, { id: -1, ms: sorted.slice(max - 1).reduce((t, [, v]) => t + v, 0) }];
+}
+
+/**
+ * GitHub-style calendar: columns = weeks (oldest left), rows = weekday starting at `startDay` (0 Sun, 1 Mon).
+ * Returns cells[col][row] (null for days outside the range) and which columns start a new month.
+ */
+export function contributionGrid(days: { key: string; ms: number; ts: number }[], startDay: number) {
+  if (!days.length) return { cols: [] as ({ key: string; ms: number; ts: number } | null)[][], monthAt: [] as { col: number; month: number }[] };
+  const lead = (new Date(days[0].ts).getDay() - startDay + 7) % 7;
+  const flat = [...Array(lead).fill(null), ...days] as ({ key: string; ms: number; ts: number } | null)[];
+  const cols: typeof flat[] = [];
+  for (let i = 0; i < flat.length; i += 7) cols.push(flat.slice(i, i + 7));
+  const monthAt: { col: number; month: number }[] = [];
+  let last = -1;
+  cols.forEach((c, i) => {
+    const first = c.find((d) => d);
+    if (!first) return;
+    const m = new Date(first.ts).getMonth();
+    if (m !== last) { monthAt.push({ col: i, month: m }); last = m; }
+  });
+  return { cols, monthAt };
+}
+
+/** 0..4 intensity for a day, relative to the busiest day (GitHub-style quartiles) */
+export const level = (ms: number, max: number) => (ms <= 0 || max <= 0 ? 0 : Math.min(4, Math.ceil((ms / max) * 4)));

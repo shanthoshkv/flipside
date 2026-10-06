@@ -6,11 +6,14 @@ import { Vibration } from 'react-native';
 import { create } from 'zustand';
 import { closeSession, deleteSession, heartbeat, markBreak, openSession } from '../db';
 import { useData } from '../data';
+import { runBackup } from '../backup';
+import { tr } from '../i18n';
 import { syncReminders } from '../reminders';
 import { useSettings } from '../store';
 import { fmtDur } from '../util';
 import { refreshWidgets } from '../widgets/refresh';
 import { pauseAmbient, playAmbient, stopAmbient } from './ambient';
+import { playBeep } from './beep';
 import { startBackground, stopBackground } from './background';
 import { Detector, THRESH } from './detect';
 import { setDnd } from './focusmode';
@@ -22,8 +25,8 @@ export type Phase = 'focus' | 'break';
 interface Flip {
   status: Status; mode: Mode; taskId: number | null; sessionId: number | null; reflectId: number | null;
   startTs: number; phase: Phase; cycle: number; phaseStart: number; now: number;
-  acc: number; pausedAt: number | null; lastRun: { ms: number; mode: Mode } | null;
-  setMode(m: Mode): void; arm(taskId: number): Promise<void>; cancel(): void;
+  acc: number; pausedAt: number | null; lastRun: { ms: number; mode: Mode } | null; parked: boolean;
+  setMode(m: Mode): void; setTask(id: number): void; arm(taskId: number): Promise<void>; cancel(): void;
   begin(): Promise<void>; end(): Promise<void>; pause(): Promise<void>; resume(): Promise<void>;
 }
 
@@ -32,8 +35,11 @@ let sub: { remove(): void } | null = null;
 let tick: ReturnType<typeof setInterval> | null = null;
 let beat: ReturnType<typeof setInterval> | null = null;
 let busy = false;
+let armTimer: ReturnType<typeof setTimeout> | null = null;
+const ARM_IDLE_MS = 15 * 60000; // listening with nothing happening for this long releases the screen and sensors
 const det = new Detector(THRESH.medium);
 
+const buzz = () => { if (useSettings.getState().vibrate) Vibration.vibrate(60); };
 const canPause = (s: Flip) => useSettings.getState().pauseMode && s.mode !== 'pomodoro';
 
 function listen(get: () => Flip) {
@@ -58,9 +64,9 @@ function listen(get: () => Flip) {
 
 const describe = () => {
   const s = useFlip.getState();
-  if (s.status === 'PAUSED') return 'Paused. Flip back to resume';
-  if (s.status !== 'RUNNING') return 'Flip your phone face-down to start';
-  return s.phase === 'break' ? 'On a break' : `Focusing · ${fmtDur(s.acc + Date.now() - s.startTs)}`;
+  if (s.status === 'PAUSED') return tr('Paused. Flip back to resume');
+  if (s.status !== 'RUNNING') return tr('Flip your phone face-down to start');
+  return s.phase === 'break' ? tr('On a break') : tr('Focusing · {t}', { t: fmtDur(s.acc + Date.now() - s.startTs) });
 };
 const ambientOn = () => { const c = useSettings.getState(); playAmbient(c.ambient, c.ambientVolume); };
 
@@ -78,13 +84,13 @@ async function schedulePomodoro(focusMin: number, breakMin: number, cycles: numb
   for (let c = 1; c <= cycles; c++) {
     sec += focusMin * 60;
     await Notifications.scheduleNotificationAsync({
-      content: { title: c === cycles ? 'Pomodoro complete' : 'Focus done', body: c === cycles ? 'Great work. All cycles finished.' : `Take a ${breakMin} min break.` },
+      content: { title: tr(c === cycles ? 'Pomodoro complete' : 'Focus done'), body: c === cycles ? tr('Great work. All cycles finished.') : tr('Take a {n} min break.', { n: breakMin }) },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: sec, channelId: 'default' },
     }).catch(() => {});
     if (c < cycles) {
       sec += breakMin * 60;
       await Notifications.scheduleNotificationAsync({
-        content: { title: 'Break over', body: 'Back to focus.' },
+        content: { title: tr('Break over'), body: tr('Back to focus.') },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: sec, channelId: 'default' },
       }).catch(() => {});
     }
@@ -93,14 +99,21 @@ async function schedulePomodoro(focusMin: number, breakMin: number, cycles: numb
 
 export const useFlip = create<Flip>((set, get) => ({
   status: 'IDLE', mode: 'stopwatch', taskId: null, sessionId: null, reflectId: null, startTs: 0,
-  phase: 'focus', cycle: 1, phaseStart: 0, now: Date.now(), acc: 0, pausedAt: null, lastRun: null,
-  setMode: (mode) => get().status === 'IDLE' && set({ mode }),
+  phase: 'focus', cycle: 1, phaseStart: 0, now: Date.now(), acc: 0, pausedAt: null, lastRun: null, parked: false,
+  setMode: (mode) => (get().status === 'IDLE' || get().status === 'ARMED') && set({ mode }),
+  setTask(id) {
+    if (get().status !== 'ARMED') return;
+    set({ taskId: id });
+    useSettings.getState().set('lastTaskId', id);
+  },
 
   async arm(taskId) {
     if (get().status !== 'IDLE') return;
-    set({ status: 'ARMED', taskId, now: Date.now() });
+    set({ status: 'ARMED', taskId, now: Date.now(), parked: false });
+    if (armTimer) clearTimeout(armTimer);
+    armTimer = setTimeout(() => { if (get().status === 'ARMED') { get().cancel(); set({ parked: true }); } }, ARM_IDLE_MS);
     useSettings.getState().set('lastTaskId', taskId);
-    activateKeepAwakeAsync(KEEP).catch(() => {});
+    if (useSettings.getState().keepAwake) activateKeepAwakeAsync(KEEP).catch(() => {});
     listen(get);
     Notifications.requestPermissionsAsync().catch(() => {});
     startBackground(describe);
@@ -108,6 +121,7 @@ export const useFlip = create<Flip>((set, get) => ({
 
   cancel() {
     if (get().status !== 'ARMED') return;
+    if (armTimer) clearTimeout(armTimer);
     stopTimers(); deactivateKeepAwake(KEEP); stopBackground();
     set({ status: 'IDLE' });
   },
@@ -116,12 +130,13 @@ export const useFlip = create<Flip>((set, get) => ({
     const s = get();
     if (s.status !== 'ARMED' || s.taskId == null || busy) return;
     busy = true;
+    if (armTimer) clearTimeout(armTimer);
     const now = Date.now(), cfg = useSettings.getState();
     try {
       const id = await openSession(s.taskId, s.mode, now);
       set({ status: 'RUNNING', reflectId: null, lastRun: null, sessionId: id, startTs: now, phase: 'focus', cycle: 1, phaseStart: now, now, acc: 0, pausedAt: null });
     } finally { busy = false; }
-    Vibration.vibrate(60);
+    buzz();
     ambientOn();
     if (cfg.strictFocus) setDnd(true);
     if (s.mode === 'pomodoro') schedulePomodoro(cfg.focusMin, cfg.breakMin, cfg.cycles);
@@ -142,7 +157,7 @@ export const useFlip = create<Flip>((set, get) => ({
     const now = Date.now(), id = s.sessionId, short = now - s.startTs < 10000;
     set({ status: 'PAUSED', sessionId: null, pausedAt: now, now, acc: short ? s.acc : s.acc + (now - s.startTs) });
     pauseAmbient();
-    Vibration.vibrate(60);
+    buzz();
     if (short) await deleteSession(id);
     else { await closeSession(id, now); await markBreak(id); set({ reflectId: id }); }
     await useData.getState().reload();
@@ -158,7 +173,7 @@ export const useFlip = create<Flip>((set, get) => ({
       const id = await openSession(s.taskId, s.mode, now);
       set({ status: 'RUNNING', sessionId: id, startTs: now, phaseStart: now, pausedAt: null, now });
     } finally { busy = false; }
-    Vibration.vibrate(60);
+    buzz();
     ambientOn();
     det.reset();
   },
@@ -178,10 +193,11 @@ export const useFlip = create<Flip>((set, get) => ({
       else { await closeSession(s.sessionId, now); set({ reflectId: s.sessionId }); total += now - s.startTs; }
     }
     if (total > 0) set({ lastRun: { ms: total, mode: s.mode } });
-    Vibration.vibrate(60);
+    buzz();
     await useData.getState().reload();
     refreshWidgets();
     syncReminders();
+    runBackup();
   },
 }));
 
@@ -200,6 +216,7 @@ async function step(t: number) {
   if (g.phase === 'focus') {
     if (g.sessionId != null) await closeSession(g.sessionId, edge);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    if (cfg.pomoBeep) playBeep();
     if (g.cycle >= cfg.cycles) {
       useFlip.setState({ sessionId: null, startTs: edge, reflectId: g.sessionId, acc: cfg.focusMin * 60000 * cfg.cycles });
       await useFlip.getState().end();
@@ -211,6 +228,7 @@ async function step(t: number) {
   } else {
     const id = await openSession(g.taskId!, 'pomodoro', edge);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    if (cfg.pomoBeep) playBeep();
     ambientOn();
     useFlip.setState({ phase: 'focus', cycle: g.cycle + 1, phaseStart: edge, sessionId: id });
     det.reset();
