@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TaskChips } from '../../components/TaskChips';
+import { TaskPicker } from '../../components/TaskPicker';
 import { Card, Txt, tap, useWidth } from '../../components/ui';
-import { addTask, getDiary, plansForDate, saveDiary, setPlan } from '../../db';
+import { getDiary, plansForDate, saveDiary, setPlan } from '../../db';
 import { useData } from '../../data';
 import { actualSlots } from '../../stats';
 import { useSettings } from '../../store';
@@ -16,9 +16,9 @@ const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Plan() {
   const t = useTheme(), { top } = useSafeAreaInsets();
-  const { tasks, sessions, reload } = useData();
+  const { tasks, sessions } = useData();
   const lastTaskId = useSettings((s) => s.lastTaskId);
-  const taskId = lastTaskId === 0 ? 0 : tasks.find((k) => k.id === lastTaskId)?.id ?? tasks[0]?.id ?? 0;
+  const taskId = lastTaskId === 0 ? 0 : tasks.find((k) => k.id === lastTaskId)?.id ?? tasks.find((k) => !k.parent_id)?.id ?? 0;
   const today = startOfDay(Date.now());
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i - 7)), [today]);
   const [date, setDate] = useState(dayKey(today));
@@ -84,8 +84,7 @@ export default function Plan() {
         })}
       </ScrollView>
 
-      <TaskChips allowNone tasks={tasks} selected={taskId} onSelect={(id) => useSettings.getState().set('lastTaskId', id)}
-        onAdd={async (n, c, col) => { const id = await addTask(n, c, col); await reload(); useSettings.getState().set('lastTaskId', id); }} />
+      <TaskPicker tasks={tasks} selected={taskId} onSelect={(id) => useSettings.getState().set('lastTaskId', id)} />
 
       <Card style={{ marginHorizontal: space(4) }}>
         <View style={{ flexDirection: 'row', gap: space(4), marginBottom: space(3) }}>

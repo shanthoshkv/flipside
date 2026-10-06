@@ -15,7 +15,7 @@ export type Mode = 'stopwatch' | 'pomodoro';
 export type Phase = 'focus' | 'break';
 
 interface Flip {
-  status: Status; mode: Mode; taskId: number | null; sessionId: number | null;
+  status: Status; mode: Mode; taskId: number | null; sessionId: number | null; reflectId: number | null;
   startTs: number; phase: Phase; cycle: number; phaseStart: number; now: number;
   setMode(m: Mode): void; arm(taskId: number): Promise<void>; cancel(): void; begin(): Promise<void>; end(): Promise<void>;
 }
@@ -69,7 +69,7 @@ async function schedulePomodoro(focusMin: number, breakMin: number, cycles: numb
 }
 
 export const useFlip = create<Flip>((set, get) => ({
-  status: 'IDLE', mode: 'stopwatch', taskId: null, sessionId: null, startTs: 0,
+  status: 'IDLE', mode: 'stopwatch', taskId: null, sessionId: null, reflectId: null, startTs: 0,
   phase: 'focus', cycle: 1, phaseStart: 0, now: Date.now(),
   setMode: (mode) => get().status === 'IDLE' && set({ mode }),
 
@@ -92,7 +92,7 @@ export const useFlip = create<Flip>((set, get) => ({
     if (s.status === 'RUNNING' || s.taskId == null) return;
     const now = Date.now(), cfg = useSettings.getState();
     const id = await openSession(s.taskId, s.mode, now);
-    set({ status: 'RUNNING', sessionId: id, startTs: now, phase: 'focus', cycle: 1, phaseStart: now, now });
+    set({ status: 'RUNNING', reflectId: null, sessionId: id, startTs: now, phase: 'focus', cycle: 1, phaseStart: now, now });
     Vibration.vibrate(60);
     if (s.mode === 'pomodoro') schedulePomodoro(cfg.focusMin, cfg.breakMin, cfg.cycles);
     listen(get);
@@ -113,7 +113,7 @@ export const useFlip = create<Flip>((set, get) => ({
     set({ status: 'IDLE', sessionId: null });
     if (s.sessionId != null) {
       if (now - s.startTs < 10000) await deleteSession(s.sessionId);
-      else await closeSession(s.sessionId, now);
+      else { await closeSession(s.sessionId, now); set({ reflectId: s.sessionId }); }
     }
     Vibration.vibrate(60);
     await useData.getState().reload();
@@ -137,7 +137,7 @@ async function step(t: number) {
     if (g.sessionId != null) await closeSession(g.sessionId, edge);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     if (g.cycle >= cfg.cycles) {
-      useFlip.setState({ sessionId: null, startTs: edge });
+      useFlip.setState({ sessionId: null, startTs: edge, reflectId: g.sessionId });
       await useFlip.getState().end();
       return;
     }

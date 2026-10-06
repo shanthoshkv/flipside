@@ -5,13 +5,13 @@ import type { Task } from '../db';
 import { categoryColors, font, radius, space, useTheme } from '../theme';
 import { Btn, Txt, tap } from './ui';
 
-export function TaskChips({ tasks, selected, onSelect, onAdd, disabled, allowNone }: {
+export function TaskChips({ tasks, selected, onSelect, onAdd, disabled, allowNone, simple }: {
   tasks: Task[]; selected: number | null; onSelect: (id: number) => void;
-  onAdd: (name: string, category: string, color: string) => void; disabled?: boolean; allowNone?: boolean;
+  onAdd: (name: string, category: string, color: string) => void; disabled?: boolean; allowNone?: boolean; simple?: boolean;
 }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const list = allowNone ? [{ id: 0, name: 'No task', category: '', color: t.muted, created_at: 0, archived: 0 }, ...tasks] : tasks;
+  const list = allowNone ? [{ id: 0, name: 'No task', category: '', color: t.muted, created_at: 0, archived: 0, parent_id: null, done: 0 }, ...tasks] : tasks;
   const [name, setName] = useState(''), [cat, setCat] = useState(''), [color, setColor] = useState(categoryColors[0]);
   const save = () => {
     if (!name.trim()) return;
@@ -42,18 +42,18 @@ export function TaskChips({ tasks, selected, onSelect, onAdd, disabled, allowNon
       <Modal transparent animationType="fade" visible={open} onRequestClose={() => setOpen(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space(5) }} onPress={() => setOpen(false)}>
           <Pressable style={{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(5), gap: space(3) }}>
-            <Txt v="h2">New task</Txt>
-            {[['Name', name, setName], ['Category (optional)', cat, setCat]].map(([ph, val, fn]: any) => (
+            <Txt v="h2">{simple ? 'New topic' : 'New subject'}</Txt>
+            {(simple ? [['Name', name, setName]] : [['Name', name, setName], ['Category (optional)', cat, setCat]]).map(([ph, val, fn]: any) => (
               <TextInput key={ph} value={val} onChangeText={fn} placeholder={ph} placeholderTextColor={t.muted}
                 style={{ minHeight: 48, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, paddingHorizontal: space(4), fontFamily: font.body, fontSize: 15 }} />
             ))}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(3) }}>
+            {!simple && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(3) }}>
               {categoryColors.map((c) => (
                 <Pressable key={c} accessibilityLabel={`Colour ${c}`} onPress={() => { tap(); setColor(c); }}
                   style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c, borderWidth: 3, borderColor: c === color ? t.text : 'transparent' }} />
               ))}
-            </View>
-            <Btn label="Add task" onPress={save} disabled={!name.trim()} />
+            </View>}
+            <Btn label={simple ? 'Add topic' : 'Add subject'} onPress={save} disabled={!name.trim()} />
           </Pressable>
         </Pressable>
       </Modal>

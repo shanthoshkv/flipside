@@ -4,6 +4,11 @@ export const startOfDay = (ts: number) => { const d = new Date(ts); d.setHours(0
 export const dayKey = (ts: number) => { const d = new Date(ts); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
 export const keyToTs = (k: string) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
 export const addDays = (ts: number, n: number) => { const d = new Date(ts); d.setDate(d.getDate() + n); return d.getTime(); };
+export const daysUntil = (key: string, now = Date.now()) => Math.round((keyToTs(key) - startOfDay(now)) / DAY);
+export const ago = (ts: number, now = Date.now()) => {
+  const d = Math.floor((startOfDay(now) - startOfDay(ts)) / DAY);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d}d ago`;
+};
 export const fmtClock = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;

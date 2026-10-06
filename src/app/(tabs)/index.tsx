@@ -1,18 +1,19 @@
 import { useEffect, useMemo } from 'react';
-import { Modal, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlipIllustration } from '../../components/FlipIllustration';
-import { TaskChips } from '../../components/TaskChips';
+import { Reflect } from '../../components/Reflect';
+import { TaskPicker } from '../../components/TaskPicker';
+import { router } from 'expo-router';
 import { Segmented } from '../../components/controls';
 import { Btn, Card, CountUp, Txt } from '../../components/ui';
-import { addTask } from '../../db';
 import { useData } from '../../data';
 import { useFlip } from '../../engine/flip';
 import { totalMs } from '../../stats';
 import { useSettings } from '../../store';
 import { font, space, useTheme } from '../../theme';
-import { fmtClock, fmtDur, startOfDay } from '../../util';
+import { daysUntil, fmtClock, fmtDur, startOfDay } from '../../util';
 
 function PulseDot() {
   const o = useSharedValue(1);
@@ -23,25 +24,26 @@ function PulseDot() {
 
 export default function TimerScreen() {
   const t = useTheme(), { top } = useSafeAreaInsets();
-  const { tasks, sessions, reload } = useData();
+  const { tasks, sessions, exams } = useData();
   const f = useFlip();
   const { lastTaskId, focusMin, touchToStart } = useSettings();
   const want = f.taskId ?? lastTaskId;
-  const sel = f.status !== 'IDLE' ? (f.taskId ?? 0) : want === 0 ? 0 : (tasks.find((k) => k.id === want)?.id ?? tasks[0]?.id ?? 0);
+  const sel = f.status !== 'IDLE' ? (f.taskId ?? 0) : want === 0 ? 0 : (tasks.find((k) => k.id === want)?.id ?? tasks.find((k) => !k.parent_id)?.id ?? 0);
   const task = tasks.find((k) => k.id === sel);
 
   const live = f.status === 'RUNNING' && f.phase === 'focus' ? f.now - f.phaseStart : 0;
   const today = useMemo(() => totalMs(sessions, startOfDay(Date.now()), Date.now() + 1), [sessions, f.status]);
 
+  const next = useMemo(() => {
+    const e = exams.map((x) => ({ ...x, days: daysUntil(x.date) })).filter((x) => x.days >= 0).sort((a, b) => a.days - b.days)[0];
+    if (!e) return null;
+    const topics = tasks.filter((k) => k.parent_id === e.task_id);
+    return { ...e, total: topics.length, done: topics.filter((k) => k.done).length };
+  }, [exams, tasks]);
+
   const pomo = f.mode === 'pomodoro';
   const len = (f.phase === 'focus' ? focusMin : useSettings.getState().breakMin) * 60000;
   const shown = f.status !== 'RUNNING' ? (pomo ? focusMin * 60000 : 0) : pomo ? Math.max(0, len - (f.now - f.phaseStart)) : f.now - f.startTs;
-
-  const add = async (name: string, cat: string, color: string) => {
-    const id = await addTask(name, cat, color);
-    await reload();
-    useSettings.getState().set('lastTaskId', id);
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(2) }}>
@@ -50,12 +52,12 @@ export default function TimerScreen() {
           <Txt v="h1">Flipside</Txt>
         </View>
 
-        <TaskChips allowNone tasks={tasks} selected={sel} disabled={f.status !== 'IDLE'}
-          onSelect={(id) => useSettings.getState().set('lastTaskId', id)} onAdd={add} />
+        <TaskPicker tasks={tasks} selected={sel} disabled={f.status !== 'IDLE'}
+          onSelect={(id) => useSettings.getState().set('lastTaskId', id)} />
 
         <View style={{ alignItems: 'center', gap: space(1) }}>
           <Txt style={{ fontFamily: font.headBold, fontSize: 88, lineHeight: 96, fontVariant: ['tabular-nums'] }} accessibilityLabel={`Timer ${fmtClock(shown)}`}>{fmtClock(shown)}</Txt>
-          <Txt v="label">{task ? task.name : 'Focus'}{pomo ? ` · ${f.phase}` : ''}</Txt>
+          <Txt v="label">{task ? (task.parent_id ? `${tasks.find((k) => k.id === task.parent_id)?.name ?? ''} › ${task.name}` : task.name) : 'Focus'}{pomo ? ` · ${f.phase}` : ''}</Txt>
         </View>
 
         <View style={{ paddingHorizontal: space(4) }}>
@@ -79,7 +81,18 @@ export default function TimerScreen() {
         <Card i={1} style={{ marginHorizontal: space(4), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View><Txt v="label">Today</Txt><CountUp value={today + live} format={fmtDur} style={{ fontFamily: font.headBold, fontSize: 28, color: t.text }} /></View>
         </Card>
+
+        {next && (
+          <Card i={2} style={{ marginHorizontal: space(4), gap: 6 }}>
+            <Txt v="label">Next exam</Txt>
+            <Pressable onPress={() => router.navigate('/study')}>
+              <Txt v="h3">{next.name} · {next.days === 0 ? 'today' : `${next.days} day${next.days === 1 ? '' : 's'}`}</Txt>
+              <Txt v="small">{next.total ? `${next.done}/${next.total} topics covered` : 'Add topics in Study to track coverage'}</Txt>
+            </Pressable>
+          </Card>
+        )}
       </ScrollView>
+      <Reflect />
 
       <Modal visible={f.status === 'RUNNING'} animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
         <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', gap: space(3) }}>

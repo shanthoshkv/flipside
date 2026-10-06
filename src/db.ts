@@ -1,7 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 
-export interface Task { id: number; name: string; category: string; color: string; created_at: number; archived: number }
-export interface Session { id: number; task_id: number; start_ts: number; end_ts: number | null; heartbeat_ts: number | null; mode: string }
+export interface Task { id: number; name: string; category: string; color: string; created_at: number; archived: number; parent_id: number | null; done: number }
+export interface Session { id: number; task_id: number; start_ts: number; end_ts: number | null; heartbeat_ts: number | null; mode: string; quality: number | null; note: string }
+export interface Exam { id: number; name: string; date: string; task_id: number }
 export interface Plan { id: number; task_id: number; date: string; slot: number }
 export interface Diary { date: string; l1: string; l2: string; l3: string }
 
@@ -15,6 +16,11 @@ const MIGRATIONS = [
    CREATE TABLE plans(id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL, date TEXT NOT NULL, slot INTEGER NOT NULL, UNIQUE(date, slot));
    CREATE TABLE diary(date TEXT PRIMARY KEY, l1 TEXT NOT NULL DEFAULT '', l2 TEXT NOT NULL DEFAULT '', l3 TEXT NOT NULL DEFAULT '');
    CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
+  `ALTER TABLE tasks ADD COLUMN parent_id INTEGER;
+   ALTER TABLE tasks ADD COLUMN done INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE sessions ADD COLUMN quality INTEGER;
+   ALTER TABLE sessions ADD COLUMN note TEXT NOT NULL DEFAULT '';
+   CREATE TABLE exams(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, date TEXT NOT NULL, task_id INTEGER NOT NULL);`,
 ];
 
 export async function migrate() {
@@ -33,11 +39,17 @@ export async function initDb() {
 
 // tasks
 export const listTasks = async () => (await db()).getAllAsync<Task>('SELECT * FROM tasks WHERE archived=0 ORDER BY id');
-export async function addTask(name: string, category: string, color: string) {
-  const r = await (await db()).runAsync('INSERT INTO tasks(name,category,color,created_at) VALUES(?,?,?,?)', name, category, color, Date.now());
+export async function addTask(name: string, category: string, color: string, parentId: number | null = null) {
+  const r = await (await db()).runAsync('INSERT INTO tasks(name,category,color,created_at,parent_id) VALUES(?,?,?,?,?)', name, category, color, Date.now(), parentId);
   return r.lastInsertRowId;
 }
-export const archiveTask = async (id: number) => void (await (await db()).runAsync('UPDATE tasks SET archived=1 WHERE id=?', id));
+export const archiveTask = async (id: number) => void (await (await db()).runAsync('UPDATE tasks SET archived=1 WHERE id=? OR parent_id=?', id, id));
+export const setTopicDone = async (id: number, done: boolean) => void (await (await db()).runAsync('UPDATE tasks SET done=? WHERE id=?', done ? 1 : 0, id));
+
+// exams
+export const listExams = async () => (await db()).getAllAsync<Exam>('SELECT * FROM exams ORDER BY date');
+export const addExam = async (name: string, date: string, taskId: number) => void (await (await db()).runAsync('INSERT INTO exams(name,date,task_id) VALUES(?,?,?)', name, date, taskId));
+export const deleteExam = async (id: number) => void (await (await db()).runAsync('DELETE FROM exams WHERE id=?', id));
 
 // sessions
 export async function openSession(taskId: number, mode: string, ts: number) {
@@ -46,6 +58,7 @@ export async function openSession(taskId: number, mode: string, ts: number) {
 }
 export const heartbeat = async (id: number, ts: number) => void (await (await db()).runAsync('UPDATE sessions SET heartbeat_ts=? WHERE id=?', ts, id));
 export const closeSession = async (id: number, ts: number) => void (await (await db()).runAsync('UPDATE sessions SET end_ts=?, heartbeat_ts=? WHERE id=?', ts, ts, id));
+export const rateSession = async (id: number, quality: number | null, note: string) => void (await (await db()).runAsync('UPDATE sessions SET quality=?, note=? WHERE id=?', quality, note, id));
 export const deleteSession = async (id: number) => void (await (await db()).runAsync('DELETE FROM sessions WHERE id=?', id));
 export async function closeOrphans() {
   const d = await db();
@@ -79,7 +92,7 @@ export const setSetting = async (k: string, v: string) =>
   void (await (await db()).runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', k, v));
 
 // export / import / reset
-const TABLES = ['tasks', 'sessions', 'plans', 'diary', 'settings'] as const;
+const TABLES = ['tasks', 'sessions', 'plans', 'diary', 'settings', 'exams'] as const;
 export async function exportAll() {
   const d = await db();
   const out: Record<string, unknown[]> = {};
