@@ -23,15 +23,15 @@ function PulseDot() {
 
 export default function TimerScreen() {
   const t = useTheme(), { top } = useSafeAreaInsets();
-  const { tasks, sessions, allMs, reload } = useData();
+  const { tasks, sessions, reload } = useData();
   const f = useFlip();
   const { lastTaskId, focusMin, touchToStart } = useSettings();
-  const sel = f.status === 'IDLE' ? (tasks.find((k) => k.id === (f.taskId ?? lastTaskId))?.id ?? tasks[0]?.id ?? null) : f.taskId;
+  const want = f.taskId ?? lastTaskId;
+  const sel = f.status !== 'IDLE' ? (f.taskId ?? 0) : want === 0 ? 0 : (tasks.find((k) => k.id === want)?.id ?? tasks[0]?.id ?? 0);
   const task = tasks.find((k) => k.id === sel);
 
   const live = f.status === 'RUNNING' && f.phase === 'focus' ? f.now - f.phaseStart : 0;
   const today = useMemo(() => totalMs(sessions, startOfDay(Date.now()), Date.now() + 1), [sessions, f.status]);
-  const coins = Math.floor((allMs + live) / 600000);
 
   const pomo = f.mode === 'pomodoro';
   const len = (f.phase === 'focus' ? focusMin : useSettings.getState().breakMin) * 60000;
@@ -48,18 +48,14 @@ export default function TimerScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: space(6), gap: space(5) }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: space(4) }}>
           <Txt v="h1">Flipside</Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.surface, paddingHorizontal: space(3), height: 40, borderRadius: 20 }}>
-            <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: t.accentA }} />
-            <Txt v="h3">{coins}</Txt>
-          </View>
         </View>
 
-        <TaskChips tasks={tasks} selected={sel} disabled={f.status !== 'IDLE'}
+        <TaskChips allowNone tasks={tasks} selected={sel} disabled={f.status !== 'IDLE'}
           onSelect={(id) => useSettings.getState().set('lastTaskId', id)} onAdd={add} />
 
         <View style={{ alignItems: 'center', gap: space(1) }}>
           <Txt style={{ fontFamily: font.headBold, fontSize: 88, lineHeight: 96, fontVariant: ['tabular-nums'] }} accessibilityLabel={`Timer ${fmtClock(shown)}`}>{fmtClock(shown)}</Txt>
-          <Txt v="label">{task ? task.name : 'Add a task to begin'}{pomo ? ` · ${f.phase}` : ''}</Txt>
+          <Txt v="label">{task ? task.name : 'Focus'}{pomo ? ` · ${f.phase}` : ''}</Txt>
         </View>
 
         <View style={{ paddingHorizontal: space(4) }}>
@@ -75,14 +71,13 @@ export default function TimerScreen() {
         </View>
 
         <View style={{ paddingHorizontal: space(4), gap: space(2) }}>
-          {f.status === 'IDLE' && <Btn label="Ready" disabled={sel == null} onPress={() => sel != null && f.arm(sel)} />}
+          {f.status === 'IDLE' && <Btn label="Ready" onPress={() => f.arm(sel)} />}
           {f.status === 'ARMED' && touchToStart && <Btn label="Start" onPress={f.begin} />}
           {f.status === 'ARMED' && <Btn kind="ghost" label="Cancel" onPress={f.cancel} />}
         </View>
 
         <Card i={1} style={{ marginHorizontal: space(4), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View><Txt v="label">Today</Txt><CountUp value={today + live} format={fmtDur} style={{ fontFamily: font.headBold, fontSize: 28, color: t.text }} /></View>
-          <View style={{ alignItems: 'flex-end' }}><Txt v="label">Coins</Txt><Txt v="h2">{coins}</Txt></View>
         </Card>
       </ScrollView>
 

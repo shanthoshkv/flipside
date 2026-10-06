@@ -56,11 +56,6 @@ export async function closeOrphans() {
 export const sessionsBetween = async (from: number, to: number) => (await db()).getAllAsync<Session>(
   'SELECT * FROM sessions WHERE start_ts < ? AND COALESCE(end_ts,heartbeat_ts,start_ts) > ? ORDER BY start_ts', to, from);
 
-export async function totalFocusMs() {
-  const r = await (await db()).getFirstAsync<{ t: number | null }>('SELECT SUM(COALESCE(end_ts,heartbeat_ts,start_ts)-start_ts) AS t FROM sessions');
-  return r?.t ?? 0;
-}
-
 // plans
 export const plansForDate = async (date: string) => (await db()).getAllAsync<Plan>('SELECT * FROM plans WHERE date=?', date);
 export async function setPlan(taskId: number, date: string, slot: number, on: boolean) {

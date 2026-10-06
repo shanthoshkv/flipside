@@ -1,16 +1,13 @@
 import { create } from 'zustand';
-import { listTasks, sessionsBetween, totalFocusMs, type Session, type Task } from './db';
-import { addDays, startOfDay } from './util';
+import { listTasks, sessionsBetween, type Session, type Task } from './db';
 
-interface Data { tasks: Task[]; sessions: Session[]; allMs: number; reload(): Promise<void> }
+interface Data { tasks: Task[]; sessions: Session[]; reload(): Promise<void> }
 
 export const useData = create<Data>((set) => ({
-  tasks: [], sessions: [], allMs: 0,
+  tasks: [], sessions: [],
   async reload() {
     const now = Date.now();
-    const [tasks, sessions, allMs] = await Promise.all([
-      listTasks(), sessionsBetween(addDays(startOfDay(now), -105), now + 86400000), totalFocusMs(),
-    ]);
-    set({ tasks, sessions, allMs });
+    const [tasks, sessions] = await Promise.all([listTasks(), sessionsBetween(0, now + 86400000)]);
+    set({ tasks, sessions });
   },
 }));

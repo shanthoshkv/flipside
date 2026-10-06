@@ -5,12 +5,13 @@ import type { Task } from '../db';
 import { categoryColors, font, radius, space, useTheme } from '../theme';
 import { Btn, Txt, tap } from './ui';
 
-export function TaskChips({ tasks, selected, onSelect, onAdd, disabled }: {
+export function TaskChips({ tasks, selected, onSelect, onAdd, disabled, allowNone }: {
   tasks: Task[]; selected: number | null; onSelect: (id: number) => void;
-  onAdd: (name: string, category: string, color: string) => void; disabled?: boolean;
+  onAdd: (name: string, category: string, color: string) => void; disabled?: boolean; allowNone?: boolean;
 }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  const list = allowNone ? [{ id: 0, name: 'No task', category: '', color: t.muted, created_at: 0, archived: 0 }, ...tasks] : tasks;
   const [name, setName] = useState(''), [cat, setCat] = useState(''), [color, setColor] = useState(categoryColors[0]);
   const save = () => {
     if (!name.trim()) return;
@@ -20,7 +21,7 @@ export function TaskChips({ tasks, selected, onSelect, onAdd, disabled }: {
   return (
     <View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2), paddingHorizontal: space(4) }}>
-        {tasks.map((k) => {
+        {list.map((k) => {
           const on = k.id === selected;
           return (
             <Animated.View key={k.id} layout={LinearTransition.springify()}>

@@ -25,6 +25,7 @@ const config: ExpoConfig = {
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    permissions: ['VIBRATE'],
   },
   web: { output: 'static', favicon: './assets/images/favicon.png' },
   plugins: [

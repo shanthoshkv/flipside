@@ -12,7 +12,7 @@ async function snapshot() {
   const days = dailyTotals(ss, now, 7);
   const goalMin: number = st.goalMin ? JSON.parse(st.goalMin) : 240;
   const lastId: number | null = st.lastTaskId ? JSON.parse(st.lastTaskId) : null;
-  const task = tasks.find((t) => t.id === lastId) ?? tasks[0] ?? null;
+  const task = lastId === 0 ? null : tasks.find((t) => t.id === lastId) ?? tasks[0] ?? null;
   const all = dailyTotals(ss, now, 60);
   return {
     todayMs: days[6].ms, goalMs: goalMin * 60000, streak: streaks(all).current, days, task,
@@ -45,11 +45,11 @@ export async function renderWidget(name: string, width: number) {
   const s = await snapshot();
   if (name === 'QuickStart') {
     return (
-      <Box uri={s.task ? `flipside://timer?task=${s.task.id}` : undefined}>
+      <Box uri={`flipside://timer?task=${s.task?.id ?? 0}`}>
         <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent', height: 'match_parent' }}>
           <FlexWidget style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: (s.task?.color as ColorProp) ?? C.b, marginRight: 12 }} />
           <FlexWidget style={{ flex: 1 }}>
-            <TextWidget text={s.task?.name ?? 'Open Flipside'} style={{ fontSize: 16, fontWeight: '700', color: C.text }} maxLines={1} />
+            <TextWidget text={s.task?.name ?? 'Focus'} style={{ fontSize: 16, fontWeight: '700', color: C.text }} maxLines={1} />
             <TextWidget text={`Tap to flip-start · today ${fmtDur(s.todayMs)}`} style={{ fontSize: 12, color: C.muted }} maxLines={1} />
           </FlexWidget>
         </FlexWidget>

@@ -18,7 +18,7 @@ export default function Plan() {
   const t = useTheme(), { top } = useSafeAreaInsets();
   const { tasks, sessions, reload } = useData();
   const lastTaskId = useSettings((s) => s.lastTaskId);
-  const taskId = tasks.find((k) => k.id === lastTaskId)?.id ?? tasks[0]?.id ?? null;
+  const taskId = lastTaskId === 0 ? 0 : tasks.find((k) => k.id === lastTaskId)?.id ?? tasks[0]?.id ?? 0;
   const today = startOfDay(Date.now());
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i - 7)), [today]);
   const [date, setDate] = useState(dayKey(today));
@@ -38,11 +38,11 @@ export default function Plan() {
   const mode = useRef<'on' | 'off'>('on');
   const last = useRef(-1);
   const slotAt = (x: number, y: number) => {
-    const col = Math.floor((x / (w - 44)) * 6), row = Math.floor(y / ROW);
+    const col = Math.floor(((x - 44) / (w - 44)) * 6), row = Math.floor(y / ROW);
     return row < 0 || row > 23 || col < 0 || col > 5 ? -1 : row * 6 + col;
   };
   const paint = useCallback((slot: number) => {
-    if (slot < 0 || taskId == null || slot === last.current) return;
+    if (slot < 0 || slot === last.current) return;
     last.current = slot;
     setPlanState((m) => {
       const n = new Map(m);
@@ -84,7 +84,7 @@ export default function Plan() {
         })}
       </ScrollView>
 
-      <TaskChips tasks={tasks} selected={taskId} onSelect={(id) => useSettings.getState().set('lastTaskId', id)}
+      <TaskChips allowNone tasks={tasks} selected={taskId} onSelect={(id) => useSettings.getState().set('lastTaskId', id)}
         onAdd={async (n, c, col) => { const id = await addTask(n, c, col); await reload(); useSettings.getState().set('lastTaskId', id); }} />
 
       <Card style={{ marginHorizontal: space(4) }}>

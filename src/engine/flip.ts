@@ -2,6 +2,7 @@ import { Accelerometer } from 'expo-sensors';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
+import { Vibration } from 'react-native';
 import { create } from 'zustand';
 import { closeSession, deleteSession, heartbeat, openSession } from '../db';
 import { useData } from '../data';
@@ -24,7 +25,6 @@ let sub: { remove(): void } | null = null;
 let tick: ReturnType<typeof setInterval> | null = null;
 let beat: ReturnType<typeof setInterval> | null = null;
 const det = new Detector(THRESH.medium);
-const buzz = (t: Haptics.ImpactFeedbackStyle) => Haptics.impactAsync(t).catch(() => {});
 
 function listen(get: () => Flip) {
   sub?.remove();
@@ -93,7 +93,7 @@ export const useFlip = create<Flip>((set, get) => ({
     const now = Date.now(), cfg = useSettings.getState();
     const id = await openSession(s.taskId, s.mode, now);
     set({ status: 'RUNNING', sessionId: id, startTs: now, phase: 'focus', cycle: 1, phaseStart: now, now });
-    buzz(Haptics.ImpactFeedbackStyle.Medium);
+    Vibration.vibrate(60);
     if (s.mode === 'pomodoro') schedulePomodoro(cfg.focusMin, cfg.breakMin, cfg.cycles);
     listen(get);
     beat = setInterval(() => { const sid = get().sessionId; if (sid != null) heartbeat(sid, Date.now()); }, 15000);
@@ -115,7 +115,7 @@ export const useFlip = create<Flip>((set, get) => ({
       if (now - s.startTs < 10000) await deleteSession(s.sessionId);
       else await closeSession(s.sessionId, now);
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Vibration.vibrate(60);
     await useData.getState().reload();
     refreshWidgets();
   },

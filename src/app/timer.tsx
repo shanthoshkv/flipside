@@ -6,8 +6,7 @@ import { useFlip } from '../engine/flip';
 export default function TimerLink() {
   const { task } = useLocalSearchParams<{ task?: string }>();
   useEffect(() => {
-    const id = Number(task);
-    if (id) useFlip.getState().arm(id);
+    if (task !== undefined) useFlip.getState().arm(Number(task) || 0);
     router.replace('/');
   }, [task]);
   return null;

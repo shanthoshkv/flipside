@@ -5,7 +5,8 @@ const endOf = (s: Seg) => s.end_ts ?? s.heartbeat_ts ?? s.start_ts;
 const overlap = (s: Seg, a: number, b: number) => Math.max(0, Math.min(endOf(s), b) - Math.max(s.start_ts, a));
 
 export const totalMs = (ss: Seg[], from: number, to: number) => ss.reduce((n, s) => n + overlap(s, from, to), 0);
-export const coinsFor = (ss: Seg[]) => Math.floor(totalMs(ss, 0, Infinity) / 600000);
+export const sessionsIn = (ss: Seg[], a: number, b: number) => ss.filter((s) => overlap(s, a, b) > 0);
+export const longestMs = (ss: Seg[]) => ss.reduce((m, s) => Math.max(m, endOf(s) - s.start_ts), 0);
 
 /** n days ending at (and including) the day of `now`, oldest first */
 export function dailyTotals(ss: Seg[], now: number, n: number) {
