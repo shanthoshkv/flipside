@@ -74,7 +74,7 @@ function Study() {
             <Pressable key={e.id} onLongPress={() => confirmDel(e.name, () => deleteExam(e.id))}>
               <Card i={i} style={{ gap: 8 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <Txt v="h3" raw>{e.name}</Txt>
+                  <Txt v="h3" raw style={{ flex: 1, marginRight: space(2) }}>{e.name}</Txt>
                   <Txt v="h2" c={days < 0 ? t.muted : days <= 7 ? t.danger : t.accentText}>{days < 0 ? tr('passed') : days === 0 ? tr('today') : tr('{n}d', { n: days })}</Txt>
                 </View>
                 <Txt v="small" raw>{`${sub?.name ?? tr('Subject deleted')} · ${fmtDate(e.date)}`}</Txt>

@@ -35,10 +35,11 @@ function TimerScreen() {
   const cfg = useSettings();
   const { lastTaskId, focusMin, touchToStart, pauseMode } = cfg;
   const [day, setDay] = useState<string | null>(null);
-  const want = f.taskId ?? lastTaskId;
-  const sel = f.status !== 'IDLE' ? (f.taskId ?? 0) : want === 0 ? 0 : (tasks.find((k) => k.id === want)?.id ?? tasks.find((k) => !k.parent_id)?.id ?? 0);
-  const task = tasks.find((k) => k.id === sel);
   const active = f.status === 'RUNNING' || f.status === 'PAUSED';
+  // Lock to the session's task only while running; ARMED/IDLE follow the user's pick.
+  const want = active ? (f.taskId ?? lastTaskId) : lastTaskId;
+  const sel = want === 0 ? 0 : (tasks.find((k) => k.id === want)?.id ?? tasks.find((k) => !k.parent_id)?.id ?? 0);
+  const task = tasks.find((k) => k.id === sel);
 
   // The timer listens whenever this tab is open: pick a task, put the phone face-down, it starts.
   const [focused, setFocused] = useState(false);
@@ -137,7 +138,7 @@ function TimerScreen() {
 
         {dueCards > 0 && (
           <Card i={2} style={{ marginHorizontal: space(4), flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View><Txt v="label">Flashcards</Txt><Txt v="h3">{tr('{n} due', { n: dueCards })}</Txt></View>
+            <View style={{ flex: 1 }}><Txt v="label">Flashcards</Txt><Txt v="h3">{tr('{n} due', { n: dueCards })}</Txt></View>
             <Btn label="Review" onPress={() => router.push('/review')} />
           </Card>
         )}

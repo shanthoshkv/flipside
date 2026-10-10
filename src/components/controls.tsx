@@ -13,8 +13,8 @@ export function Segmented<T extends string>({ options, value, onChange, disabled
         return (
           <Pressable key={o.v} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: on }}
             onPress={() => { tap(); onChange(o.v); }}
-            style={{ flex: 1, minHeight: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.surface : 'transparent' }}>
-            <Txt v="h3" c={on ? t.accentText : t.muted}>{o.label}</Txt>
+            style={{ flex: 1, minHeight: 44, paddingHorizontal: 2, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.surface : 'transparent' }}>
+            <Txt v="h3" c={on ? t.accentText : t.muted} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ textAlign: 'center' }}>{o.label}</Txt>
           </Pressable>
         );
       })}
@@ -44,10 +44,10 @@ export function Stepper({ label, value, onChange, min, max, step = 1, unit }: {
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space(1) }}>
-      <Txt>{label}</Txt>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+      <Txt style={{ flex: 1, flexShrink: 1, marginRight: space(2) }}>{label}</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(1) }}>
         <Btn d={-step} s="−" />
-        <Txt v="h3" style={{ minWidth: 64, textAlign: 'center' }}>{value}{unit ?? ''}</Txt>
+        <Txt v="h3" raw style={{ minWidth: 52, textAlign: 'center' }}>{`${value}${unit ?? ''}`}</Txt>
         <Btn d={step} s="+" />
       </View>
     </View>
