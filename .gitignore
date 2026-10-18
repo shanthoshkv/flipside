@@ -46,3 +46,11 @@ example
 /android
 /ios
 .remember/
+
+# local tooling
+.claude/
+.remember/
+.graphify/
+graphify-out/
+CLAUDE.md
+flipside-master-prompt.md
