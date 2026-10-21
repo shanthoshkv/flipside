@@ -17,10 +17,13 @@ export function dailyTotals(ss: Seg[], now: number, n: number) {
   });
 }
 
+/** local hour boundary (UTC flooring is wrong in +5:30 style zones) */
+const hourStart = (ts: number) => new Date(ts).setMinutes(0, 0, 0);
+
 export function hourDist(ss: Seg[]) {
   const h = Array(24).fill(0) as number[];
   for (const s of ss) {
-    for (let t = Math.floor(s.start_ts / 3600000) * 3600000; t < endOf(s); t += 3600000) {
+    for (let t = hourStart(s.start_ts); t < endOf(s); t += 3600000) {
       h[new Date(t).getHours()] += overlap(s, t, t + 3600000);
     }
   }
@@ -150,3 +153,33 @@ export function contributionGrid(days: { key: string; ms: number; ts: number }[]
 
 /** 0..4 intensity for a day, relative to the busiest day (GitHub-style quartiles) */
 export const level = (ms: number, max: number) => (ms <= 0 || max <= 0 ? 0 : Math.min(4, Math.ceil((ms / max) * 4)));
+
+/** 7×24 grid, [weekday 0=Sun][hour] → ms, over all sessions */
+export function hourWeekGrid(ss: Seg[]) {
+  const g = Array.from({ length: 7 }, () => Array(24).fill(0) as number[]);
+  for (const s of ss) {
+    for (let t = hourStart(s.start_ts); t < endOf(s); t += 3600000) {
+      const d = new Date(t);
+      g[d.getDay()][d.getHours()] += overlap(s, t, t + 3600000);
+    }
+  }
+  return g;
+}
+
+/** trailing n-day mean of a daily series */
+export const movingAvg = (xs: number[], n = 7) => xs.map((_, i) => {
+  const w = xs.slice(Math.max(0, i - n + 1), i + 1);
+  return w.reduce((a, b) => a + b, 0) / w.length;
+});
+
+/**
+ * 0-100 focus score for a set of sessions: 40 from avg rating (unrated = neutral 3),
+ * 30 from share of sessions without a pickup, 30 from average length vs 50 min.
+ */
+export function focusScore(ss: (Seg & { quality?: number | null; breaks?: number })[]) {
+  if (!ss.length) return null;
+  const q = ss.reduce((n, s) => n + (s.quality ?? 3), 0) / ss.length;
+  const clean = ss.filter((s) => !s.breaks).length / ss.length;
+  const len = ss.reduce((n, s) => n + endOf(s) - s.start_ts, 0) / ss.length;
+  return Math.round(((q - 1) / 4) * 40 + clean * 30 + Math.min(1, len / 3000000) * 30);
+}

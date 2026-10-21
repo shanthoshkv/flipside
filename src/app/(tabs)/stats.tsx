@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ring } from '../../components/charts';
 import { StatsCharts } from '../../components/StatsCharts';
+import { Insights } from '../../components/Insights';
 import { Segmented } from '../../components/controls';
 import { DatePicker } from '../../components/DatePicker';
 import { GoalsCard, WeeklyReviewCard } from '../../components/WeekCards';
@@ -142,6 +143,8 @@ function Stats() {
       </View>
 
       <View style={pad}><Btn kind="ghost" label="Open any day" onPress={() => setPickOpen(true)} /></View>
+
+      {d.ss.length > 0 && <Insights ss={d.ss} />}
 
       <StatsCharts ss={d.ss} tasks={tasks} active={active} topic={topic} range={range} goal={goal} hours={d.hours} onDay={setDay} />
 

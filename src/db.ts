@@ -164,3 +164,52 @@ export async function resetAll() {
   const d = await db();
   for (const t of TABLES) await d.runAsync(`DELETE FROM ${t}`);
 }
+
+/** Find a task by name (and parent) or create it. Used by imports. */
+export async function ensureTask(name: string, parentId: number | null, color: string) {
+  const d = await db();
+  const hit = await d.getFirstAsync<{ id: number }>('SELECT id FROM tasks WHERE name=? AND archived=0 AND parent_id IS ?', name, parentId);
+  return hit ? hit.id : Number((await d.runAsync('INSERT INTO tasks(name,category,color,created_at,parent_id) VALUES(?,?,?,?,?)', name, '', color, Date.now(), parentId)).lastInsertRowId);
+}
+/** Inserts sessions that do not already exist (same task and start). Returns how many were added. */
+export async function addSessions(rows: { task_id: number; start: number; end: number; quality: number | null; note: string }[]) {
+  const d = await db(); let n = 0;
+  await d.withTransactionAsync(async () => {
+    for (const r of rows) {
+      if (await d.getFirstAsync('SELECT 1 FROM sessions WHERE task_id=? AND start_ts=?', r.task_id, r.start)) continue;
+      await d.runAsync("INSERT INTO sessions(task_id,start_ts,end_ts,heartbeat_ts,mode,quality,note) VALUES(?,?,?,?,'manual',?,?)", r.task_id, r.start, r.end, r.end, r.quality, r.note);
+      n++;
+    }
+  });
+  return n;
+}
+
+/** Adds a Flipside export to the current data without deleting anything. Tasks match by name; duplicates are skipped. Review history is not merged. */
+export async function mergeAll(json: string) {
+  const p = JSON.parse(json);
+  if (p?.app !== 'flipside' || !p.data) throw new Error('Not a Flipside export');
+  const src = p.data as Record<string, any[]>, d = await db(), ids = new Map<number, number>([[0, 0]]);
+  const n = { tasks: 0, sessions: 0, cards: 0 };
+  const tasks = [...(src.tasks ?? [])].sort((a, b) => (a.parent_id == null ? 0 : 1) - (b.parent_id == null ? 0 : 1));
+  for (const t of tasks) {
+    if (t.archived) continue;
+    const parent = t.parent_id == null ? null : ids.get(t.parent_id) ?? null;
+    const before = (await listTasks()).length;
+    ids.set(t.id, await ensureTask(t.name, parent, t.color));
+    if ((await listTasks()).length > before) n.tasks++;
+  }
+  const map = (id: number) => ids.get(id) ?? 0;
+  n.sessions = await addSessions((src.sessions ?? []).filter((s) => s.end_ts).map((s) => ({ task_id: map(s.task_id), start: s.start_ts, end: s.end_ts, quality: s.quality ?? null, note: s.note ?? '' })));
+  await d.withTransactionAsync(async () => {
+    for (const c of src.cards ?? []) {
+      if (await d.getFirstAsync('SELECT 1 FROM cards WHERE front=? AND back=?', c.front, c.back)) continue;
+      await d.runAsync('INSERT INTO cards(task_id,front,back,due,ease,interval,reps,lapses,created_at,last_review,stability,difficulty,front_img,back_img) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        map(c.task_id), c.front, c.back, c.due, c.ease, c.interval, c.reps, c.lapses, c.created_at, c.last_review, c.stability ?? null, c.difficulty ?? null, c.front_img ?? null, c.back_img ?? null);
+      n.cards++;
+    }
+    for (const e of src.exams ?? []) if (!(await d.getFirstAsync('SELECT 1 FROM exams WHERE name=? AND date=?', e.name, e.date))) await d.runAsync('INSERT INTO exams(name,date,task_id) VALUES(?,?,?)', e.name, e.date, map(e.task_id));
+    for (const x of src.plans ?? []) await d.runAsync('INSERT OR IGNORE INTO plans(task_id,date,slot) VALUES(?,?,?)', map(x.task_id), x.date, x.slot);
+    for (const x of src.diary ?? []) await d.runAsync('INSERT OR IGNORE INTO diary(date,l1,l2,l3) VALUES(?,?,?,?)', x.date, x.l1, x.l2, x.l3);
+  });
+  return n;
+}

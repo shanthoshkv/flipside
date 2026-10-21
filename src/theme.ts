@@ -1,6 +1,6 @@
 import { useColorScheme } from 'react-native';
 import { FONT_SETS, type FontPref, type FontSet } from './fonts';
-import { ACCENTS, dark, light } from './palette';
+import { ACCENTS, black, dark, light } from './palette';
 import { useSettings } from './store';
 
 export { dark, light };
@@ -20,7 +20,7 @@ export function useTheme(): Theme {
   const accent = useSettings((s) => s.accent);
   useSettings((s) => s.fontPref); // re-render when the font changes
   useSettings((s) => s.lang); // re-render when the language changes
-  const isDark = pref === 'auto' ? sys !== 'light' : pref === 'dark';
-  const base = isDark ? dark : light, a = ACCENTS[accent] ?? ACCENTS.amber;
+  const isDark = pref === 'auto' ? sys !== 'light' : pref !== 'light';
+  const base = pref === 'black' ? black : isDark ? dark : light, a = ACCENTS[accent] ?? ACCENTS.amber;
   return { ...base, accentA: a.a, accentB: a.b, accentText: isDark ? a.textDark : a.textLight, isDark };
 }

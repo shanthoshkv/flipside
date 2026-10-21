@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flipside Viewer</title>
+<style>
+:root{--bg:#0B0B10;--s:#14141C;--s2:#1C1C27;--t:#F4F4F8;--m:#8B8BA0;--a:#FFB547}
+@media (prefers-color-scheme:light){:root{--bg:#FAF8F5;--s:#fff;--s2:#F0EDE8;--t:#14141C;--m:#5F5F72;--a:#B45309}}
+body{margin:0;background:var(--bg);color:var(--t);font:15px system-ui,sans-serif;padding:16px;max-width:900px;margin:auto}
+.c{background:var(--s);border-radius:16px;padding:16px;margin:12px 0}h1{margin:0 0 8px}small,.m{color:var(--m)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}.k{font-size:24px;font-weight:700}
+.bar{height:8px;background:var(--s2);border-radius:4px}.bar i{display:block;height:8px;border-radius:4px;background:var(--a)}
+.hm{display:grid;grid-template-columns:repeat(53,1fr);grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:2px}.hm b{aspect-ratio:1;border-radius:2px;background:var(--s2)}
+label{display:block;border:2px dashed var(--m);border-radius:16px;padding:24px;text-align:center;cursor:pointer}
+</style></head><body>
+<h1>Flipside Viewer</h1><p class="m">Open a Flipside JSON backup. It is read in this browser only and is never uploaded.</p>
+<label>Choose backup file<input id="f" type="file" accept=".json" hidden></label><div id="out"></div>
+<script>
+const fmt=ms=>{const m=Math.round(ms/6e4);return m>=60?`${Math.floor(m/60)}h ${String(m%60).padStart(2,'0')}m`:`${m}m`};
+const key=ts=>{const d=new Date(ts);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+f.onchange=async()=>{
+  let j;try{j=JSON.parse(await f.files[0].text());if(j.app!=='flipside')throw 0}catch{out.innerHTML='<p class="c">Not a Flipside backup.</p>';return}
+  const {tasks=[],sessions=[],cards=[]}=j.data,ss=sessions.filter(s=>s.end_ts),T=new Map(tasks.map(t=>[t.id,t]));
+  const root=id=>{const t=T.get(id);return t&&t.parent_id!=null?T.get(t.parent_id)||t:t};
+  const len=s=>s.end_ts-s.start_ts,tot=ss.reduce((n,s)=>n+len(s),0),days=new Map(),by=new Map();
+  for(const s of ss){days.set(key(s.start_ts),(days.get(key(s.start_ts))||0)+len(s));const r=root(s.task_id),k=r?r.name:'No task';by.set(k,[(by.get(k)?.[0]||0)+len(s),r?.color||'#8B8BA0'])}
+  const max=Math.max(1,...days.values()),today=new Date();today.setHours(0,0,0,0);
+  const start=new Date(today);start.setDate(start.getDate()-370-start.getDay());
+  let hm='';for(let d=new Date(start);d<=today;d.setDate(d.getDate()+1)){const v=days.get(key(d))||0;hm+=`<b title="${key(d)} ${fmt(v)}" style="${v?`background:var(--a);opacity:${.25+.75*v/max}`:''}"></b>`}
+  const top=[...by].sort((a,b)=>b[1][0]-a[1][0]),bmax=top[0]?.[1][0]||1;
+  out.innerHTML=`<div class="g">${[['Total',fmt(tot)],['Sessions',ss.length],['Active days',days.size],['Cards',cards.length]].map(([k,v])=>`<div class="c"><small>${k}</small><div class="k">${v}</div></div>`).join('')}</div>
+  <div class="c"><small>Last year</small><div class="hm">${hm}</div></div>
+  <div class="c"><small>By subject</small>${top.map(([k,[ms,c]])=>`<p>${esc(k)} <span class="m">${fmt(ms)} · ${Math.round(ms/tot*100)}%</span></p><div class="bar"><i style="width:${ms/bmax*100}%;background:${esc(c)}"></i></div>`).join('')}</div>`;
+};
+</script></body></html>

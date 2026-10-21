@@ -13,6 +13,7 @@ import { initDb, setSetting } from '../db';
 import { useData } from '../data';
 import { useSettings } from '../store';
 import { useTheme } from '../theme';
+import * as ScreenCapture from 'expo-screen-capture';
 import { setDnd } from '../engine/focusmode';
 import { setLang } from '../i18n';
 import { syncReminders } from '../reminders';
@@ -36,6 +37,8 @@ export default function Root() {
   const onboarded = useSettings((s) => s.onboarded);
   const lang = useSettings((s) => s.lang);
   setLang(lang); // before children render, so every string picks up the language
+  const secure = useSettings((s) => s.secureScreen);
+  useEffect(() => { (secure ? ScreenCapture.preventScreenCaptureAsync() : ScreenCapture.allowScreenCaptureAsync()).catch(() => {}); }, [secure]);
 
   useEffect(() => {
     (async () => {

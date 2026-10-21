@@ -7,7 +7,7 @@ import type { AccentPref } from './palette';
 import { set24h, setWeekStart } from './util';
 
 export type Sensitivity = 'low' | 'medium' | 'high';
-export type ThemePref = 'auto' | 'dark' | 'light';
+export type ThemePref = 'auto' | 'dark' | 'black' | 'light';
 export interface Settings {
   goalMin: number; weeklyGoalMin: number; sensitivity: Sensitivity; calib: Thresh | null;
   focusMin: number; breakMin: number; cycles: number;
@@ -19,7 +19,7 @@ export interface Settings {
   remindPlan: boolean; remindStreak: boolean; remindWeekly: boolean; quietStart: number; quietEnd: number;
   backupDir: string | null; lastBackup: number;
   fontPref: FontPref; accent: AccentPref; textScale: number; pomoBeep: boolean;
-  vibrate: boolean; haptics: boolean; keepAwake: boolean; weekStart: 'mon' | 'sun'; clock24: boolean; lastError: string;
+  vibrate: boolean; haptics: boolean; keepAwake: boolean; weekStart: 'mon' | 'sun'; clock24: boolean; lastError: string; secureScreen: boolean;
   loaded: boolean;
 }
 const defaults: Settings = {
@@ -33,7 +33,7 @@ const defaults: Settings = {
   remindPlan: false, remindStreak: false, remindWeekly: false, quietStart: 22, quietEnd: 7,
   backupDir: null, lastBackup: 0,
   fontPref: 'default', accent: 'amber', textScale: 1, pomoBeep: true,
-  vibrate: true, haptics: true, keepAwake: true, weekStart: 'mon', clock24: true, lastError: '',
+  vibrate: true, haptics: true, keepAwake: true, weekStart: 'mon', clock24: true, lastError: '', secureScreen: false,
   loaded: false,
 };
 /** Settings the pure helpers in util.ts need to know about. */

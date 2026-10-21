@@ -7,6 +7,9 @@ export const light: typeof dark = {
   border: 'rgba(0,0,0,0.07)', accentA: '#F59E0B', accentB: '#EF5350', accentText: '#9A4A06', danger: '#C62828', success: '#16A34A', dotOff: '#D9D4CC',
 };
 
+/** AMOLED: true black background, same text colours as dark */
+export const black: typeof dark = { ...dark, bg: '#000000', surface: '#0B0B10', surface2: '#16161F', dotOff: '#1E1E28' };
+
 const lum = (hex: string) => {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];

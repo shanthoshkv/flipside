@@ -39,7 +39,8 @@ let armTimer: ReturnType<typeof setTimeout> | null = null;
 const ARM_IDLE_MS = 15 * 60000; // listening with nothing happening for this long releases the screen and sensors
 const det = new Detector(THRESH.medium);
 
-const buzz = () => { if (useSettings.getState().vibrate) Vibration.vibrate(60); };
+/** start = one short pulse, stop = two, pause = one long */
+const buzz = (k: 'start' | 'stop' | 'pause' = 'start') => { if (useSettings.getState().vibrate) Vibration.vibrate(k === 'start' ? 60 : k === 'pause' ? 250 : [0, 60, 90, 60]); };
 const canPause = (s: Flip) => useSettings.getState().pauseMode && s.mode !== 'pomodoro';
 
 function listen(get: () => Flip) {
@@ -157,7 +158,7 @@ export const useFlip = create<Flip>((set, get) => ({
     const now = Date.now(), id = s.sessionId, short = now - s.startTs < 10000;
     set({ status: 'PAUSED', sessionId: null, pausedAt: now, now, acc: short ? s.acc : s.acc + (now - s.startTs) });
     pauseAmbient();
-    buzz();
+    buzz('pause');
     if (short) await deleteSession(id);
     else { await closeSession(id, now); await markBreak(id); set({ reflectId: id }); }
     await useData.getState().reload();
@@ -193,7 +194,7 @@ export const useFlip = create<Flip>((set, get) => ({
       else { await closeSession(s.sessionId, now); set({ reflectId: s.sessionId }); total += now - s.startTs; }
     }
     if (total > 0) set({ lastRun: { ms: total, mode: s.mode } });
-    buzz();
+    buzz('stop');
     await useData.getState().reload();
     refreshWidgets();
     syncReminders();

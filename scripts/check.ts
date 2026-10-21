@@ -9,6 +9,10 @@ import { rows2 } from '../src/locales/strings2.ts';
 import { planDay } from '../src/engine/planner.ts';
 import { ACCENTS, contrast, dark, light } from '../src/palette.ts';
 import { calibrate } from '../src/engine/detect.ts';
+import { black } from '../src/palette.ts';
+import { focusScore, hourWeekGrid, movingAvg } from '../src/stats.ts';
+import { cardsTsv, parseCardsText, parseCsv, parseSessionsCsv, reportMd, sessionsCsv, sessionsIcs } from '../src/exportfmt.ts';
+import { readFileSync } from 'node:fs';
 
 // flip start after 1s flat face-down, then stop on lift
 const d = new Detector(THRESH.medium);
@@ -176,4 +180,34 @@ const wk = (ms: number[]) => ms.map((v, i) => ({ ms: v, ts: new Date(2026, 0, 5 
 assert.deepEqual(streaks(wk([1, 1, 0, 1, 1, 1, 1]), true), { current: 6, best: 6 }, 'one rest day forgiven');
 assert.deepEqual(streaks(wk([1, 1, 0, 0, 1, 1, 1]), true), { current: 3, best: 3 }, 'second zero breaks');
 assert.deepEqual(streaks(wk([1, 1, 0, 1, 1, 1, 1]), false), { current: 4, best: 4 }, 'rest off = plain');
+// export / import formats
+const xt = [{ id: 1, name: 'Maths', parent_id: null }, { id: 2, name: 'Calc, "II"', parent_id: 1 }];
+const xs = [{ task_id: 2, start_ts: new Date(2026, 0, 5, 9, 0).getTime(), end_ts: new Date(2026, 0, 5, 9, 50).getTime(), heartbeat_ts: null, mode: 'pomodoro', quality: 4, note: 'line1\nline2' }];
+const csv = sessionsCsv(xs, xt);
+assert.deepEqual(parseCsv(csv)[1], ['2026-01-05 09:00', '2026-01-05 09:50', '50', 'Maths', 'Calc, "II"', 'pomodoro', '4', 'line1\nline2'], 'csv round trip with quotes/newlines');
+const back = parseSessionsCsv(csv)[0];
+assert.ok(back.start === xs[0].start_ts && back.end === xs[0].end_ts && back.subject === 'Maths' && back.topic === 'Calc, "II"' && back.quality === 4, 'own csv re-import');
+const toggl = parseSessionsCsv('User,Project,Description,Start date,Start time,End date,End time\nme,Physics,Optics,2026-01-05,10:00:00,2026-01-05,11:30:00');
+assert.equal(toggl[0].end - toggl[0].start, 90 * 60000); assert.equal(toggl[0].subject, 'Physics'); assert.equal(toggl[0].topic, 'Optics');
+const forest = parseSessionsCsv('Start Time,End Time,Tag,Note\n2026-01-05 08:00,2026-01-05 08:25,Study,x\n2026-01-05 09:00,2026-01-05 09:00:05,Study,');
+assert.equal(forest.length, 1, 'forest csv, <10s dropped'); assert.equal(forest[0].subject, 'Study');
+assert.throws(() => parseSessionsCsv('a,b\n1,2'), /start and end/);
+const tsv = cardsTsv([{ front: 'Q\t1', back: 'A', task_id: 2 }], xt);
+assert.deepEqual(parseCardsText(tsv), [{ front: 'Q 1', back: 'A', tag: 'Maths' }], 'anki txt round trip');
+assert.deepEqual(parseCardsText('<b>H2O</b>;water &amp; ice\nbad line'), [{ front: 'H2O', back: 'water & ice', tag: '' }], 'html stripped, semicolons');
+const ics = sessionsIcs(xs, xt, 0);
+assert.ok(ics.includes('BEGIN:VEVENT') && ics.includes('SUMMARY:Focus: Maths / Calc\\, "II"') && ics.includes('DESCRIPTION:line1\\nline2') && ics.split('\r\n').length > 8, 'ics');
+assert.ok(reportMd(xs, xt, 0).includes('| Maths | 50m | 100% |'), 'markdown report');
+
+// insights
+assert.deepEqual(movingAvg([2, 4, 6, 8], 2), [2, 3, 5, 7]);
+const hw = hourWeekGrid([{ task_id: 1, start_ts: new Date(2026, 0, 5, 9, 30).getTime(), end_ts: new Date(2026, 0, 5, 10, 30).getTime(), heartbeat_ts: null }]);
+assert.equal(hw[1][9], 30 * 60000); assert.equal(hw[1][10], 30 * 60000, 'monday 9 and 10 split');
+const fs0 = (q: number | null, breaks: number, min: number) => ({ task_id: 1, start_ts: 0, end_ts: min * 60000, heartbeat_ts: null, quality: q, breaks });
+assert.equal(focusScore([fs0(5, 0, 50)]), 100); assert.equal(focusScore([fs0(1, 1, 0)]), 0); assert.equal(focusScore([]), null);
+assert.ok(focusScore([fs0(null, 0, 25)])! > 40 && focusScore([fs0(null, 0, 25)])! < 70, 'unrated is neutral');
+
+// black theme readable; app never asks for network
+for (const fg of ['text', 'muted', 'accentText', 'danger'] as const) for (const bg of ['bg', 'surface', 'surface2'] as const) assert.ok(contrast(black[fg], black[bg]) >= 4.5, `black: ${fg} on ${bg}`);
+assert.ok(/blockedPermissions:[^\]]*'android\.permission\.INTERNET'/.test(readFileSync('app.config.ts', 'utf8')), 'INTERNET permission must stay blocked');
 console.log('pass');

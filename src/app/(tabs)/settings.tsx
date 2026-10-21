@@ -1,7 +1,4 @@
-import * as DocumentPicker from 'expo-document-picker';
-import { File, Paths } from 'expo-file-system';
 import * as Notifications from 'expo-notifications';
-import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,8 +7,7 @@ import { AmbientPicker } from '../../components/AmbientPicker';
 import { Calibrate } from '../../components/Calibrate';
 import { Segmented, Stepper, SwitchRow } from '../../components/controls';
 import { Btn, Card, Txt, tap } from '../../components/ui';
-import { exportAll, importAll, resetAll } from '../../db';
-import { useData } from '../../data';
+import { DataCard } from '../../components/DataCard';
 import { previewAmbient, setAmbientVolume } from '../../engine/ambient';
 import { playBeep } from '../../engine/beep';
 import { dndGranted, openDndSettings } from '../../engine/focusmode';
@@ -47,23 +43,6 @@ function Settings() {
     ]);
   };
 
-  const doExport = async () => {
-    try {
-      const f = new File(Paths.cache, `flipside-${dayKey(Date.now())}.json`);
-      f.create(); f.write(await exportAll());
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(f.uri, { mimeType: 'application/json' });
-      else Alert.alert(tr('Export saved'), f.uri);
-    } catch (e) { Alert.alert(tr('Export failed'), String(e)); }
-  };
-  const doImport = async () => {
-    try {
-      const r = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'text/plain'], copyToCacheDirectory: true });
-      if (r.canceled) return;
-      await importAll(await new File(r.assets[0].uri).text());
-      await s.load(); await useData.getState().reload(); refreshWidgets();
-      Alert.alert(tr('Imported'), tr('Your data was restored.'));
-    } catch (e) { Alert.alert(tr('Import failed'), String(e)); }
-  };
   const pickFolder = async () => {
     try { const err = await chooseBackupFolder(); Alert.alert(err ? tr('Backup failed') : tr('Backup folder set'), err ?? tr('A backup was saved. Flipside now backs up about once a day and keeps the newest 7.')); }
     catch (e) { Alert.alert(tr('Backup failed'), String(e)); }
@@ -72,11 +51,6 @@ function Settings() {
     { text: tr('Cancel'), style: 'cancel' },
     { text: tr('Restore'), style: 'destructive', onPress: async () => { try { Alert.alert(tr('Restored'), await restoreLatest()); } catch (e) { Alert.alert(tr('Restore failed'), String(e)); } } },
   ]);
-  const doReset = () => Alert.alert(tr('Reset all data?'), tr('Tasks, sessions, plans and diary will be deleted. This cannot be undone.'), [
-    { text: tr('Cancel'), style: 'cancel' },
-    { text: tr('Delete everything'), style: 'destructive', onPress: async () => { await resetAll(); await useData.getState().reload(); refreshWidgets(); } },
-  ]);
-
   const chip = (on: boolean, label: string, onPress: () => void) => (
     <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { tap(); onPress(); }}
       style={{ minHeight: 44, paddingHorizontal: space(4), borderRadius: radius.pill, justifyContent: 'center', backgroundColor: on ? t.accentA : t.surface2 }}>
@@ -161,7 +135,7 @@ function Settings() {
       <Card i={8} style={pad}>
         <Txt v="label">Appearance</Txt>
         <Segmented<ThemePref> value={s.theme} onChange={(v) => set('theme', v)}
-          options={[{ v: 'auto', label: 'Auto' }, { v: 'dark', label: 'Dark' }, { v: 'light', label: 'Light' }]} />
+          options={[{ v: 'auto', label: 'Auto' }, { v: 'dark', label: 'Dark' }, { v: 'black', label: 'Black' }, { v: 'light', label: 'Light' }]} />
         <Txt v="label">Font</Txt>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
           {(Object.keys(FONT_LABELS) as FontPref[]).map((f) => chip(s.fontPref === f, tr(FONT_LABELS[f]), () => setFontPref(f)))}
@@ -189,6 +163,7 @@ function Settings() {
         <SwitchRow label="24-hour clock" value={s.clock24} onChange={(v) => set('clock24', v)} />
         <SwitchRow label="Vibrate when a session starts or stops" value={s.vibrate} onChange={(v) => set('vibrate', v)} />
         <SwitchRow label="Touch feedback" hint="A light tap when you press buttons." value={s.haptics} onChange={(v) => set('haptics', v)} />
+        <SwitchRow label="Block screenshots" hint="Hides the app in recent apps and blocks screen capture." value={s.secureScreen} onChange={(v) => set('secureScreen', v)} />
         <SwitchRow label="Keep the screen on while listening" hint="Needed for reliable flip detection. Turn off to save battery." value={s.keepAwake} onChange={(v) => set('keepAwake', v)} />
       </Card>
 
@@ -200,12 +175,7 @@ function Settings() {
         {!!s.backupDir && <Btn kind="ghost" label="Restore latest backup" onPress={restore} />}
       </Card>
 
-      <Card i={10} style={pad}>
-        <Txt v="label">Data</Txt>
-        <Btn kind="ghost" label="Export JSON" onPress={doExport} />
-        <Btn kind="ghost" label="Import JSON" onPress={doImport} />
-        <Btn kind="danger" label="Reset all data" onPress={doReset} />
-      </Card>
+      <DataCard i={10} />
 
       <Card i={11} style={pad}>
         <Txt v="label">About</Txt>
