@@ -31,6 +31,8 @@ const MIGRATIONS = [
    ALTER TABLE cards ADD COLUMN difficulty REAL;
    ALTER TABLE cards ADD COLUMN front_img TEXT;
    ALTER TABLE cards ADD COLUMN back_img TEXT;`,
+  `CREATE TABLE busy(id INTEGER PRIMARY KEY AUTOINCREMENT, start_ts INTEGER NOT NULL, end_ts INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '');
+   CREATE INDEX idx_busy_start ON busy(start_ts);`,
 ];
 
 export async function migrate() {
@@ -139,7 +141,7 @@ export const setSetting = async (k: string, v: string) =>
   void (await (await db()).runAsync('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', k, v));
 
 // export / import / reset
-const TABLES = ['tasks', 'sessions', 'plans', 'diary', 'settings', 'exams', 'cards', 'reviews'] as const;
+const TABLES = ['tasks', 'sessions', 'plans', 'diary', 'settings', 'exams', 'cards', 'reviews', 'busy'] as const;
 export async function exportAll() {
   const d = await db();
   const out: Record<string, unknown[]> = {};
@@ -212,4 +214,30 @@ export async function mergeAll(json: string) {
     for (const x of src.diary ?? []) await d.runAsync('INSERT OR IGNORE INTO diary(date,l1,l2,l3) VALUES(?,?,?,?)', x.date, x.l1, x.l2, x.l3);
   });
   return n;
+}
+
+/** Puts a deleted row back exactly as it was (used by Undo). */
+export async function restoreRow(table: 'sessions' | 'cards' | 'exams', row: object) {
+  const cols = Object.keys(row);
+  await (await db()).runAsync(`INSERT OR REPLACE INTO ${table}(${cols.join(',')}) VALUES(${cols.map(() => '?').join(',')})`, ...cols.map((c) => (row as any)[c]));
+}
+export const unarchiveTask = async (id: number) => void (await (await db()).runAsync('UPDATE tasks SET archived=0 WHERE id=? OR parent_id=?', id, id));
+
+// busy blocks from an imported calendar
+export interface Busy { start_ts: number; end_ts: number; title: string }
+export async function replaceBusy(rows: Busy[]) {
+  const d = await db();
+  await d.withTransactionAsync(async () => {
+    await d.runAsync('DELETE FROM busy');
+    for (const r of rows) await d.runAsync('INSERT INTO busy(start_ts,end_ts,title) VALUES(?,?,?)', r.start_ts, r.end_ts, r.title);
+  });
+}
+export const busyBetween = async (from: number, to: number) => (await db()).getAllAsync<Busy>('SELECT * FROM busy WHERE start_ts < ? AND end_ts > ? ORDER BY start_ts', to, from);
+/** Copies one day's plan to the same weekday for the next n weeks (existing slots there are kept). */
+export async function repeatPlan(date: string, dates: string[]) {
+  const d = await db(), src = await plansForDate(date);
+  await d.withTransactionAsync(async () => {
+    for (const k of dates) for (const p of src) await d.runAsync('INSERT OR IGNORE INTO plans(task_id,date,slot) VALUES(?,?,?)', p.task_id, k, p.slot);
+  });
+  return src.length;
 }

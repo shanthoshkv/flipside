@@ -7,7 +7,9 @@ import { Stepper } from '../../components/controls';
 import { Btn, Card, Txt, tap, useWidth } from '../../components/ui';
 import { planDay, type PTopic } from '../../engine/planner';
 import { scheduleSync } from '../../reminders';
-import { clearPlans, getDiary, plansForDate, saveDiary, setPlan } from '../../db';
+import { busyBetween, clearPlans, getDiary, plansForDate, saveDiary, setPlan } from '../../db';
+import { busySlots } from '../../ics';
+import { PlanTools } from '../../components/PlanTools';
 import { useData } from '../../data';
 import { actualSlots } from '../../stats';
 import { useSettings } from '../../store';
@@ -30,10 +32,13 @@ function Plan() {
   const [date, setDate] = useState(dayKey(today));
   const [plan, setPlanState] = useState<Map<number, number>>(new Map());
   const [diary, setDiary] = useState(['', '', '']);
+  const [busy, setBusy] = useState<Set<number>>(new Set()), [rev, setRev] = useState(0);
+  const busyFor = async (k: string) => busySlots(await busyBetween(keyToTs(k), keyToTs(k) + 86400000), keyToTs(k));
   const [w, onLayout] = useWidth(300);
   const stripRef = useRef<ScrollView>(null);
 
   useEffect(() => { plansForDate(date).then((ps) => setPlanState(new Map(ps.map((p) => [p.slot, p.task_id])))); }, [date]);
+  useEffect(() => { busyFor(date).then(setBusy); }, [date, rev]);
   useEffect(() => { getDiary(date).then((d) => setDiary([d.l1, d.l2, d.l3])); }, [date]);
   useEffect(() => { setTimeout(() => stripRef.current?.scrollTo({ x: 5 * 64, animated: false }), 0); }, []);
 
@@ -86,7 +91,7 @@ function Plan() {
       if (i < 0) continue;
       const key = dayKey(addDays(today, i)), existing = await plansForDate(key);
       const nowSlot = i === 0 ? Math.floor((Date.now() - today) / 600000) + 1 : 0;
-      const placed = planDay(topics, exs, counts, new Set(existing.map((p) => p.slot)), {
+      const placed = planDay(topics, exs, counts, new Set([...existing.map((p) => p.slot), ...(await busyFor(key))]), {
         startSlot: Math.max(cfg.planStart * 6, nowSlot), endSlot: cfg.planEnd * 6, blockSlots: Math.max(1, Math.round(cfg.planBlock / 10)),
         budgetSlots: Math.max(0, Math.round(cfg.goalMin / 10) - existing.length),
       });
@@ -135,6 +140,7 @@ function Plan() {
             <Stepper label="Block length" value={cfg.planBlock} unit="m" min={20} max={120} step={10} onChange={(v) => cfg.set('planBlock', v)} />
             <Btn label="Plan this day" onPress={() => autoPlan(1)} />
             <Btn kind="ghost" label="Plan 7 days from here" onPress={() => autoPlan(7)} />
+            <PlanTools date={date} onChange={() => { setRev((r) => r + 1); reloadPlan(); }} />
             <Btn kind="danger" label="Clear this day" onPress={clearDay} />
           </View>
         )}
@@ -165,7 +171,7 @@ function Plan() {
                       <View key={c} style={{
                         flex: 1, height: ROW - 8, marginLeft: joinL ? 0 : 1.5, marginRight: joinR ? 0 : 1.5,
                         borderTopLeftRadius: joinL ? 0 : r, borderBottomLeftRadius: joinL ? 0 : r, borderTopRightRadius: joinR ? 0 : r, borderBottomRightRadius: joinR ? 0 : r,
-                        backgroundColor: a != null ? col : p != null ? `${col}26` : t.surface2,
+                        backgroundColor: a != null ? col : p != null ? `${col}26` : busy.has(s) ? t.dotOff : t.surface2, opacity: a == null && p == null && busy.has(s) ? 0.5 : 1,
                         borderWidth: p != null && a == null ? 1.5 : 0, borderColor: col,
                         borderLeftWidth: p != null && a == null && joinL ? 0 : p != null && a == null ? 1.5 : 0,
                         borderRightWidth: p != null && a == null && joinR ? 0 : p != null && a == null ? 1.5 : 0,

@@ -17,6 +17,7 @@ import { playBeep } from './beep';
 import { startBackground, stopBackground } from './background';
 import { Detector, THRESH } from './detect';
 import { setDnd } from './focusmode';
+import { breakLen } from '../presets';
 
 export type Status = 'IDLE' | 'ARMED' | 'RUNNING' | 'PAUSED';
 export type Mode = 'stopwatch' | 'pomodoro' | 'flowtime';
@@ -25,7 +26,7 @@ export type Phase = 'focus' | 'break';
 interface Flip {
   status: Status; mode: Mode; taskId: number | null; sessionId: number | null; reflectId: number | null;
   startTs: number; phase: Phase; cycle: number; phaseStart: number; now: number;
-  acc: number; pausedAt: number | null; lastRun: { ms: number; mode: Mode } | null; parked: boolean;
+  acc: number; pausedAt: number | null; lastRun: { ms: number; mode: Mode } | null; parked: boolean; goal: string; setGoal(g: string): void;
   setMode(m: Mode): void; setTask(id: number): void; arm(taskId: number): Promise<void>; cancel(): void;
   begin(): Promise<void>; end(): Promise<void>; pause(): Promise<void>; resume(): Promise<void>;
 }
@@ -69,7 +70,7 @@ const describe = () => {
   if (s.status !== 'RUNNING') return tr('Flip your phone face-down to start');
   return s.phase === 'break' ? tr('On a break') : tr('Focusing · {t}', { t: fmtDur(s.acc + Date.now() - s.startTs) });
 };
-const ambientOn = () => { const c = useSettings.getState(); playAmbient(c.ambient, c.ambientVolume); };
+const ambientOn = () => { const c = useSettings.getState(); playAmbient(c.ambient, c.ambientVolume); playAmbient(c.ambient2, c.ambient2Volume, 1); };
 
 function stopTimers() {
   sub?.remove(); sub = null;
@@ -78,17 +79,18 @@ function stopTimers() {
   tick = beat = null;
 }
 
-async function schedulePomodoro(focusMin: number, breakMin: number, cycles: number) {
+async function schedulePomodoro(focusMin: number, cycles: number) {
   const perm = await Notifications.requestPermissionsAsync().catch(() => null);
   if (!perm?.granted) return;
   let sec = 0;
   for (let c = 1; c <= cycles; c++) {
     sec += focusMin * 60;
     await Notifications.scheduleNotificationAsync({
-      content: { title: tr(c === cycles ? 'Pomodoro complete' : 'Focus done'), body: c === cycles ? tr('Great work. All cycles finished.') : tr('Take a {n} min break.', { n: breakMin }) },
+      content: { title: tr(c === cycles ? 'Pomodoro complete' : 'Focus done'), body: c === cycles ? tr('Great work. All cycles finished.') : tr('Take a {n} min break.', { n: breakLen(useSettings.getState(), c) }) },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: sec, channelId: 'default' },
     }).catch(() => {});
     if (c < cycles) {
+      const breakMin = breakLen(useSettings.getState(), c);
       sec += breakMin * 60;
       await Notifications.scheduleNotificationAsync({
         content: { title: tr('Break over'), body: tr('Back to focus.') },
@@ -100,7 +102,8 @@ async function schedulePomodoro(focusMin: number, breakMin: number, cycles: numb
 
 export const useFlip = create<Flip>((set, get) => ({
   status: 'IDLE', mode: 'stopwatch', taskId: null, sessionId: null, reflectId: null, startTs: 0,
-  phase: 'focus', cycle: 1, phaseStart: 0, now: Date.now(), acc: 0, pausedAt: null, lastRun: null, parked: false,
+  phase: 'focus', cycle: 1, phaseStart: 0, now: Date.now(), acc: 0, pausedAt: null, lastRun: null, parked: false, goal: '',
+  setGoal: (goal) => set({ goal }),
   setMode: (mode) => (get().status === 'IDLE' || get().status === 'ARMED') && set({ mode }),
   setTask(id) {
     if (get().status !== 'ARMED') return;
@@ -140,7 +143,7 @@ export const useFlip = create<Flip>((set, get) => ({
     buzz();
     ambientOn();
     if (cfg.strictFocus) setDnd(true);
-    if (s.mode === 'pomodoro') schedulePomodoro(cfg.focusMin, cfg.breakMin, cfg.cycles);
+    if (s.mode === 'pomodoro') schedulePomodoro(cfg.focusMin, cfg.cycles);
     listen(get);
     beat = setInterval(() => { const sid = get().sessionId; if (sid != null) heartbeat(sid, Date.now()); }, 15000);
     tick = setInterval(() => {
@@ -211,7 +214,7 @@ async function advance(t: number) {
 
 async function step(t: number) {
   const g = useFlip.getState(), cfg = useSettings.getState();
-  const len = (g.phase === 'focus' ? cfg.focusMin : cfg.breakMin) * 60000;
+  const len = (g.phase === 'focus' ? cfg.focusMin : breakLen(cfg, g.cycle)) * 60000;
   if (t - g.phaseStart < len) return;
   const edge = g.phaseStart + len;
   if (g.phase === 'focus') {

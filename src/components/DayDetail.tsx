@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
-import { deleteSession, getDiary, type Diary, type Session, type Task } from '../db';
+import { useUndo } from '../undo';
+import { deleteSession, restoreRow, getDiary, type Diary, type Session, type Task } from '../db';
 import { useData } from '../data';
 import { tr } from '../i18n';
 import { radius, space, useTheme } from '../theme';
@@ -30,10 +31,7 @@ export function DayDetail({ day, sessions, tasks, onClose }: { day: string | nul
     return p ? `${p.name} › ${k.name}` : k.name;
   };
   const lines = diary ? [diary.l1, diary.l2, diary.l3].filter(Boolean) : [];
-  const del = (s: Session) => Alert.alert(tr('Delete this session?'), tr('This removes its time from your stats.'), [
-    { text: tr('Cancel'), style: 'cancel' },
-    { text: tr('Delete'), style: 'destructive', onPress: async () => { await deleteSession(s.id); await useData.getState().reload(); } },
-  ]);
+  const del = async (s: Session) => { await deleteSession(s.id); await useData.getState().reload(); useUndo.getState().show('Session deleted', () => restoreRow('sessions', s)); };
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>

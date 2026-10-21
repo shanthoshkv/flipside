@@ -8,7 +8,8 @@ import { CardEditor, dropImage } from '../components/CardEditor';
 import { rootOf } from '../components/TaskPicker';
 import { BarChart } from '../components/charts';
 import { Btn, Card, EmptyState, Txt, tap } from '../components/ui';
-import { addCards, deleteCard, newIntroducedSince, reviewedSince, type Card as CardRow } from '../db';
+import { useUndo } from '../undo';
+import { addCards, deleteCard, restoreRow, newIntroducedSince, reviewedSince, type Card as CardRow } from '../db';
 import { useData } from '../data';
 import { buildQueue, fmtInterval, isDue } from '../engine/srs';
 import { tr } from '../i18n';
@@ -63,7 +64,10 @@ function Cards() {
       Alert.alert(tr('Imported'), tr('{n} cards added to {name}.', { n: rows.length, name: nameOf(sel) }));
     } catch (e) { Alert.alert(tr('Import failed'), String(e)); }
   };
-  const del = (c: CardRow) => Alert.alert(tr('Delete card?'), undefined, [{ text: tr('Cancel'), style: 'cancel' }, { text: tr('Delete'), style: 'destructive', onPress: async () => { dropImage(c.front_img); dropImage(c.back_img); await deleteCard(c.id); await reload(); } }]);
+  const del = async (c: CardRow) => {
+    await deleteCard(c.id); await reload();
+    useUndo.getState().show('Card deleted', () => restoreRow('cards', c), () => { dropImage(c.front_img); dropImage(c.back_img); });
+  };
   const go = (task?: number) => router.push(task === undefined ? '/review' : { pathname: '/review', params: { task: String(task) } });
 
   return (

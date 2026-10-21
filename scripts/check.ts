@@ -6,13 +6,16 @@ import { weeklyReview } from '../src/weekly.ts';
 import { planBlocks, blockTimes, inQuiet, nextSundays } from '../src/remindCore.ts';
 import { rows } from '../src/locales/strings.ts';
 import { rows2 } from '../src/locales/strings2.ts';
+import { rows3 } from '../src/locales/strings3.ts';
 import { planDay } from '../src/engine/planner.ts';
 import { ACCENTS, contrast, dark, light } from '../src/palette.ts';
 import { calibrate } from '../src/engine/detect.ts';
 import { black } from '../src/palette.ts';
-import { focusScore, hourWeekGrid, movingAvg } from '../src/stats.ts';
+import { focusScore, hourWeekGrid, movingAvg, periodSummary } from '../src/stats.ts';
 import { cardsTsv, parseCardsText, parseCsv, parseSessionsCsv, reportMd, sessionsCsv, sessionsIcs } from '../src/exportfmt.ts';
 import { readFileSync } from 'node:fs';
+import { busySlots, parseIcs } from '../src/ics.ts';
+import { breakLen } from '../src/presets.ts';
 
 // flip start after 1s flat face-down, then stop on lift
 const d = new Detector(THRESH.medium);
@@ -141,7 +144,9 @@ assert.equal(ww.prev, 30 * 60000, 'previous calendar week');
 
 // translations: every row has all 6 languages and keeps the {placeholders} of the English text
 const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).filter((x) => !/^\{\{/.test(x)).sort().join(',');
-for (const r of [...rows, ...rows2]) {
+const old = new Set([...rows, ...rows2].map((r) => r[0]));
+for (const r of rows3) assert.ok(!old.has(r[0]), `row already in strings/strings2: ${r[0]}`);
+for (const r of [...rows, ...rows2, ...rows3]) {
   assert.equal(r.length, 7, `row needs 7 columns: ${r[0]}`);
   for (let i = 1; i < 7; i++) {
     assert.ok(r[i].trim().length > 0, `empty translation ${i} for: ${r[0]}`);
@@ -210,4 +215,28 @@ assert.ok(focusScore([fs0(null, 0, 25)])! > 40 && focusScore([fs0(null, 0, 25)])
 // black theme readable; app never asks for network
 for (const fg of ['text', 'muted', 'accentText', 'danger'] as const) for (const bg of ['bg', 'surface', 'surface2'] as const) assert.ok(contrast(black[fg], black[bg]) >= 4.5, `black: ${fg} on ${bg}`);
 assert.ok(/blockedPermissions:[^\]]*'android\.permission\.INTERNET'/.test(readFileSync('app.config.ts', 'utf8')), 'INTERNET permission must stay blocked');
+// calendar import
+{
+  const D0 = new Date(2026, 0, 5).getTime(); // Monday
+  const cal = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'DTSTART;TZID=Asia/Kolkata:20260105T090000', 'DTEND;TZID=Asia/Kolkata:20260105T103000', 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=4', 'EXDATE;TZID=Asia/Kolkata:20260107T090000', 'SUMMARY:Lecture\, Aero', 'END:VEVENT',
+    'BEGIN:VEVENT', 'DTSTART;VALUE=DATE:20260106', 'SUMMARY:Holiday', 'END:VEVENT',
+    'BEGIN:VEVENT', 'DTSTART:20260106T060000Z', 'DTEND:20260106T070000Z', 'SUMMARY:Lab', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const ev = parseIcs(cal, D0 - 1, D0 + 30 * D);
+  assert.equal(ev.filter((e) => e.title === 'Lecture, Aero').length, 3, 'weekly Mon/Wed x4 minus one exdate');
+  assert.deepEqual(ev.filter((e) => e.title === 'Lecture, Aero').map((e) => new Date(e.start_ts).getDay()), [1, 1, 3], 'mon, (wed skipped), mon, wed');
+  assert.ok(!ev.some((e) => e.title === 'Holiday'), 'all-day skipped');
+  assert.equal(ev.find((e) => e.title === 'Lab')!.start_ts, Date.UTC(2026, 0, 6, 6), 'utc time');
+  const bs = busySlots([{ start_ts: D0 + 9 * 3600000, end_ts: D0 + 10.5 * 3600000 }], D0);
+  assert.equal(bs.size, 9); assert.ok(bs.has(54) && bs.has(62) && !bs.has(63), '09:00-10:30 = slots 54..62');
+  assert.equal(parseIcs(sessionsIcs(xs, xt, 0), 0, Infinity)[0].start_ts, xs[0].start_ts, 'own ics re-reads');
+}
+
+// wrapped + long breaks
+{
+  const ps = periodSummary(sess, base0, base0 + 7 * D, (id) => id);
+  assert.equal(ps.total, 4.5 * H); assert.equal(ps.count, 3); assert.equal(ps.activeDays, 3); assert.equal(ps.streak, 3); assert.equal(ps.top[0][0], 1);
+  const c = { breakMin: 5, longBreakMin: 15, longEvery: 4 };
+  assert.deepEqual([1, 2, 3, 4, 8].map((n) => breakLen(c, n)), [5, 5, 5, 15, 15]);
+  assert.equal(breakLen({ ...c, longEvery: 0 }, 4), 5, 'long break off');
+}
 console.log('pass');

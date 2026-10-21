@@ -183,3 +183,17 @@ export function focusScore(ss: (Seg & { quality?: number | null; breaks?: number
   const len = ss.reduce((n, s) => n + endOf(s) - s.start_ts, 0) / ss.length;
   return Math.round(((q - 1) / 4) * 40 + clean * 30 + Math.min(1, len / 3000000) * 30);
 }
+
+/** Totals for a "Wrapped" card: [from,to) window, subjects via rootOf. */
+export function periodSummary(ss: Seg[], from: number, to: number, rootOf: (id: number) => number) {
+  const inside = sessionsIn(ss, from, to), n = Math.round((to - from) / DAY);
+  const days = Array.from({ length: n }, (_, i) => { const d = addDays(from, i); return { key: dayKey(d), ms: totalMs(inside, d, addDays(d, 1)) }; });
+  let run = 0, streak = 0;
+  for (const d of days) { run = d.ms > 0 ? run + 1 : 0; streak = Math.max(streak, run); }
+  const hours = hourDist(inside), bestHour = hours.indexOf(Math.max(...hours));
+  return {
+    total: totalMs(inside, from, to), count: inside.length, activeDays: days.filter((d) => d.ms > 0).length, streak,
+    top: perTask(inside.map((s) => ({ ...s, task_id: rootOf(s.task_id) })), from, to).slice(0, 3),
+    best: bestDay(days), bestHour: hours[bestHour] > 0 ? bestHour : null,
+  };
+}

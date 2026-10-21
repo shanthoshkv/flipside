@@ -14,12 +14,13 @@ export interface Settings {
   touchToStart: boolean; pauseMode: boolean; pauseGraceMin: number; restDay: boolean;
   theme: ThemePref; lang: string; lastTaskId: number | null; onboarded: boolean;
   planStart: number; planEnd: number; planBlock: number;
-  ambient: Sound; ambientVolume: number; bgService: boolean; strictFocus: boolean;
+  ambient: Sound; ambientVolume: number; ambient2: Sound; ambient2Volume: number; bgService: boolean; strictFocus: boolean;
   scheduler: 'fsrs' | 'sm2'; retention: number; newPerDay: number; reviewsPerDay: number;
   remindPlan: boolean; remindStreak: boolean; remindWeekly: boolean; quietStart: number; quietEnd: number;
   backupDir: string | null; lastBackup: number;
   fontPref: FontPref; accent: AccentPref; textScale: number; pomoBeep: boolean;
   vibrate: boolean; haptics: boolean; keepAwake: boolean; weekStart: 'mon' | 'sun'; clock24: boolean; lastError: string; secureScreen: boolean;
+  longBreakMin: number; longEvery: number; myPresets: { focus: number; brk: number }[]; flipReveal: boolean; widgetPrivate: boolean;
   loaded: boolean;
 }
 const defaults: Settings = {
@@ -28,12 +29,13 @@ const defaults: Settings = {
   touchToStart: false, pauseMode: false, pauseGraceMin: 5, restDay: true,
   theme: 'auto', lang: 'auto', lastTaskId: null, onboarded: false,
   planStart: 17, planEnd: 22, planBlock: 50,
-  ambient: 'off', ambientVolume: 50, bgService: true, strictFocus: false,
+  ambient: 'off', ambientVolume: 50, ambient2: 'off', ambient2Volume: 30, bgService: true, strictFocus: false,
   scheduler: 'fsrs', retention: 90, newPerDay: 20, reviewsPerDay: 200,
   remindPlan: false, remindStreak: false, remindWeekly: false, quietStart: 22, quietEnd: 7,
   backupDir: null, lastBackup: 0,
   fontPref: 'default', accent: 'amber', textScale: 1, pomoBeep: true,
   vibrate: true, haptics: true, keepAwake: true, weekStart: 'mon', clock24: true, lastError: '', secureScreen: false,
+  longBreakMin: 15, longEvery: 0, myPresets: [], flipReveal: false, widgetPrivate: false,
   loaded: false,
 };
 /** Settings the pure helpers in util.ts need to know about. */

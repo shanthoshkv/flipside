@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal, Pressable, ScrollView, View } from 'react-native';
+import { AppState, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { BreakScreen } from '../../components/BreakScreen';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AmbientPicker } from '../../components/AmbientPicker';
@@ -12,7 +13,7 @@ import { Segmented } from '../../components/controls';
 import { Btn, Card, CountUp, Txt, tap } from '../../components/ui';
 import { useData } from '../../data';
 import { useFlip, type Mode } from '../../engine/flip';
-import { PRESETS } from '../../presets';
+import { allPresets, breakLen } from '../../presets';
 import { totalMs } from '../../stats';
 import { useSettings, weeklyGoal } from '../../store';
 import { font, radius, space, useTheme } from '../../theme';
@@ -68,7 +69,7 @@ function TimerScreen() {
 
   const pomo = f.mode === 'pomodoro';
   const canPause = pauseMode && !pomo;
-  const len = (f.phase === 'focus' ? focusMin : cfg.breakMin) * 60000;
+  const len = (f.phase === 'focus' ? focusMin : breakLen(cfg, f.cycle)) * 60000;
   const shown = f.status === 'RUNNING' ? (pomo ? Math.max(0, len - (f.now - f.phaseStart)) : f.acc + f.now - f.startTs)
     : f.status === 'PAUSED' ? f.acc : pomo ? focusMin * 60000 : 0;
   const hint = f.parked ? 'Paused listening to save battery.'
@@ -94,7 +95,7 @@ function TimerScreen() {
             options={[{ v: 'stopwatch', label: 'Stopwatch' }, { v: 'pomodoro', label: 'Pomodoro' }, { v: 'flowtime', label: 'Flowtime' }]} />
           {pomo && !active && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
-              {PRESETS.map((p) => {
+              {allPresets(cfg.myPresets).map((p) => {
                 const on = cfg.focusMin === p.focus && cfg.breakMin === p.brk;
                 return (
                   <Pressable key={p.label} accessibilityLabel={`Preset ${p.focus} minutes focus, ${p.brk} minutes break`} onPress={() => { tap(); cfg.set('focusMin', p.focus); cfg.set('breakMin', p.brk); }}
@@ -107,6 +108,12 @@ function TimerScreen() {
           )}
           {f.mode === 'flowtime' && !active && <Txt v="small">Work until you naturally stop. Flipside then suggests a break in proportion (about a fifth of your focus).</Txt>}
         </View>
+
+        {!active && (
+          <TextInput value={f.goal} onChangeText={f.setGoal} placeholder={tr('Goal for this session (optional)')} placeholderTextColor={t.muted} maxLength={120}
+            accessibilityLabel={tr('Goal for this session (optional)')}
+            style={{ marginHorizontal: space(4), minHeight: 48, borderRadius: radius.sm, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, color: t.text, paddingHorizontal: space(3), fontFamily: font.body, fontSize: 15 }} />
+        )}
 
         <View style={{ paddingHorizontal: space(4), gap: 6 }}>
           <Txt v="label">Focus sound</Txt>
@@ -158,9 +165,10 @@ function TimerScreen() {
 
       <Modal visible={active} animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
         <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', gap: space(3) }}>
-          <PulseDot paused={f.status === 'PAUSED'} />
+          {pomo && f.phase === 'break' ? <BreakScreen elapsed={f.now - f.phaseStart} /> : <PulseDot paused={f.status === 'PAUSED'} />}
           <Txt style={{ fontFamily: font.head, fontSize: 40, color: '#4A4A58', fontVariant: ['tabular-nums'] }}>{fmtClock(shown)}</Txt>
           <Txt v="small" c="#3A3A46" raw>{`${f.status === 'PAUSED' ? tr('Paused') : task?.name ?? ''}${pomo ? ` · ${tr(f.phase === 'focus' ? 'Focus' : 'Break')} ${f.cycle}/${cfg.cycles}` : ''}`}</Txt>
+          {!!f.goal && f.phase === 'focus' && <Txt v="small" c="#3A3A46" raw style={{ textAlign: 'center', paddingHorizontal: space(8) }}>{`→ ${f.goal}`}</Txt>}
           {touchToStart && (
             <View style={{ marginTop: space(8), gap: space(2) }}>
               {canPause && (f.status === 'RUNNING' ? <Btn kind="ghost" label="Pause" onPress={f.pause} /> : <Btn kind="ghost" label="Resume" onPress={f.resume} />)}

@@ -16,10 +16,12 @@ export function Reflect() {
   const id = useFlip((s) => s.reflectId), idle = useFlip((s) => s.status === 'IDLE');
   const run = useFlip((s) => s.lastRun);
   const [q, setQ] = useState<number | null>(null), [note, setNote] = useState('');
+  const goal = useFlip((s) => s.goal), [hit, setHit] = useState<boolean | null>(null);
   const breakMin = run ? Math.max(5, Math.min(25, Math.round(run.ms / 60000 / 5))) : 0;
   const close = async (save: boolean) => {
-    if (save && id != null && (q != null || note.trim())) { await rateSession(id, q, note.trim()); await useData.getState().reload(); }
-    useFlip.setState({ reflectId: null }); setQ(null); setNote('');
+    const text = [goal && hit != null ? `${hit ? '✓' : '✗'} ${goal}` : '', note.trim()].filter(Boolean).join(' · ');
+    if (save && id != null && (q != null || text)) { await rateSession(id, q, text); await useData.getState().reload(); }
+    useFlip.setState({ reflectId: null, goal: hit === false ? goal : '' }); setQ(null); setNote(''); setHit(null);
   };
   return (
     <Modal transparent animationType="fade" visible={id != null && idle} onRequestClose={() => close(false)}>
@@ -39,6 +41,16 @@ export function Reflect() {
               );
             })}
           </View>
+          {!!goal && (
+            <View style={{ gap: space(2) }}>
+              <Txt v="small" raw>{tr('Goal: {g}', { g: goal })}</Txt>
+              <View style={{ flexDirection: 'row', gap: space(2) }}>
+                {([true, false] as const).map((v) => (
+                  <Btn key={String(v)} kind={hit === v ? 'primary' : 'ghost'} label={v ? 'Done' : 'Not yet'} onPress={() => setHit(v)} style={{ flex: 1 }} />
+                ))}
+              </View>
+            </View>
+          )}
           <TextInput value={note} onChangeText={setNote} placeholder={tr('What did you cover? (optional)')} placeholderTextColor={t.muted} multiline
             style={{ minHeight: 64, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, padding: space(3), fontFamily: font.body, fontSize: 15, textAlignVertical: 'top' }} />
           <View style={{ flexDirection: 'row', gap: space(2) }}>

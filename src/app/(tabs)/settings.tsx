@@ -15,7 +15,7 @@ import { setFontPref } from '../../appearance';
 import { FONT_LABELS, type FontPref } from '../../fonts';
 import { LANGS, tr } from '../../i18n';
 import { ACCENTS, type AccentPref } from '../../palette';
-import { PRESETS } from '../../presets';
+import { allPresets } from '../../presets';
 import { scheduleSync } from '../../reminders';
 import { useSettings, type Sensitivity, type ThemePref } from '../../store';
 import { radius, space, useTheme } from '../../theme';
@@ -51,8 +51,8 @@ function Settings() {
     { text: tr('Cancel'), style: 'cancel' },
     { text: tr('Restore'), style: 'destructive', onPress: async () => { try { Alert.alert(tr('Restored'), await restoreLatest()); } catch (e) { Alert.alert(tr('Restore failed'), String(e)); } } },
   ]);
-  const chip = (on: boolean, label: string, onPress: () => void) => (
-    <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { tap(); onPress(); }}
+  const chip = (on: boolean, label: string, onPress: () => void, onLongPress?: () => void) => (
+    <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => { tap(); onPress(); }} onLongPress={onLongPress}
       style={{ minHeight: 44, paddingHorizontal: space(4), borderRadius: radius.pill, justifyContent: 'center', backgroundColor: on ? t.accentA : t.surface2 }}>
       <Txt v="h3" c={on ? '#1A1206' : t.text}>{label}</Txt>
     </Pressable>
@@ -91,11 +91,16 @@ function Settings() {
       <Card i={3} style={pad}>
         <Txt v="label">Pomodoro</Txt>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2) }}>
-          {PRESETS.map((p) => chip(s.focusMin === p.focus && s.breakMin === p.brk, p.label, () => { set('focusMin', p.focus); set('breakMin', p.brk); }))}
+          {allPresets(s.myPresets).map((p) => chip(s.focusMin === p.focus && s.breakMin === p.brk, p.label, () => { set('focusMin', p.focus); set('breakMin', p.brk); },
+            'mine' in p ? () => set('myPresets', s.myPresets.filter((x) => x.focus !== p.focus || x.brk !== p.brk)) : undefined))}
         </ScrollView>
         <Stepper label="Focus" value={s.focusMin} unit="m" min={5} max={120} step={5} onChange={(v) => set('focusMin', v)} />
         <Stepper label="Break" value={s.breakMin} unit="m" min={1} max={30} onChange={(v) => set('breakMin', v)} />
         <Stepper label="Cycles" value={s.cycles} min={1} max={12} onChange={(v) => set('cycles', v)} />
+        <Stepper label="Long break every (0 = off)" value={s.longEvery} unit="×" min={0} max={12} onChange={(v) => set('longEvery', v)} />
+        {s.longEvery > 0 && <Stepper label="Long break" value={s.longBreakMin} unit="m" min={5} max={60} step={5} onChange={(v) => set('longBreakMin', v)} />}
+        {!allPresets(s.myPresets).some((p) => p.focus === s.focusMin && p.brk === s.breakMin) && <Btn kind="ghost" label="Save as preset" onPress={() => set('myPresets', [...s.myPresets, { focus: s.focusMin, brk: s.breakMin }])} />}
+        {s.myPresets.length > 0 && <Txt v="small">Long-press one of your presets to remove it.</Txt>}
         <SwitchRow label="Beep when a focus or break ends" hint="Two short beeps at the end of each Pomodoro phase." value={s.pomoBeep} onChange={(v) => set('pomoBeep', v)} />
         <Btn kind="ghost" label="Test beep" onPress={playBeep} />
       </Card>
@@ -105,7 +110,11 @@ function Settings() {
         <AmbientPicker />
         <Stepper label="Volume" value={s.ambientVolume} unit="%" min={10} max={100} step={10}
           onChange={(v) => { s.set('ambientVolume', v); setAmbientVolume(v); previewAmbient(s.ambient, v); }} />
-        <Txt v="small">Plays during focus, pauses on breaks, mixes with your music. Generated on the device, no internet.</Txt>
+        <Txt v="label">Second layer</Txt>
+        <AmbientPicker layer={1} />
+        {s.ambient2 !== 'off' && <Stepper label="Layer volume" value={s.ambient2Volume} unit="%" min={10} max={100} step={10}
+          onChange={(v) => { s.set('ambient2Volume', v); setAmbientVolume(v, 1); previewAmbient(s.ambient2, v, 1); }} />}
+        <Txt v="small">Plays during focus, pauses on breaks, mixes with your music. Mix two sounds, e.g. rain and campfire. Stored on the device, no internet.</Txt>
       </Card>
 
       <Card i={5} style={pad}>
@@ -163,6 +172,7 @@ function Settings() {
         <SwitchRow label="24-hour clock" value={s.clock24} onChange={(v) => set('clock24', v)} />
         <SwitchRow label="Vibrate when a session starts or stops" value={s.vibrate} onChange={(v) => set('vibrate', v)} />
         <SwitchRow label="Touch feedback" hint="A light tap when you press buttons." value={s.haptics} onChange={(v) => set('haptics', v)} />
+        <SwitchRow label="Hide names on widgets" hint="Widgets show Subject 1, Exam… instead of your subject and exam names." value={s.widgetPrivate} onChange={(v) => set('widgetPrivate', v)} />
         <SwitchRow label="Block screenshots" hint="Hides the app in recent apps and blocks screen capture." value={s.secureScreen} onChange={(v) => set('secureScreen', v)} />
         <SwitchRow label="Keep the screen on while listening" hint="Needed for reliable flip detection. Turn off to save battery." value={s.keepAwake} onChange={(v) => set('keepAwake', v)} />
       </Card>

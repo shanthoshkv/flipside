@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ring } from '../../components/charts';
 import { StatsCharts } from '../../components/StatsCharts';
 import { Insights } from '../../components/Insights';
+import { Wrapped } from '../../components/Wrapped';
+import { router } from 'expo-router';
 import { Segmented } from '../../components/controls';
 import { DatePicker } from '../../components/DatePicker';
 import { GoalsCard, WeeklyReviewCard } from '../../components/WeekCards';
@@ -49,7 +51,7 @@ function Stats() {
   const [pick, setPick] = useState<number | null>(null);
   const [topic, setTopic] = useState<number | null>(null);
   const [day, setDay] = useState<string | null>(null);
-  const [pickOpen, setPickOpen] = useState(false);
+  const [pickOpen, setPickOpen] = useState(false), [wrap, setWrap] = useState(false);
 
   // subjects that have sessions (0 = no task); topics roll up into their subject
   const ids = useMemo(() => [...new Set(sessions.map((s) => rootOf(tasks, s.task_id)))], [sessions, tasks]);
@@ -86,7 +88,11 @@ function Stats() {
 
   return (
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(6), gap: space(4) }}>
-      <Txt v="h1" style={{ paddingHorizontal: space(4) }}>Stats</Txt>
+      <View style={{ paddingHorizontal: space(4), flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+        <Txt v="h1" style={{ flex: 1 }}>Stats</Txt>
+        <Btn kind="ghost" label="Search" onPress={() => router.push('/search')} />
+        <Btn kind="ghost" label="Wrapped" onPress={() => setWrap(true)} />
+      </View>
 
       {scope === 'all' && <WeeklyReviewCard />}
       {scope === 'all' && <GoalsCard />}
@@ -184,6 +190,7 @@ function Stats() {
           </Pressable>
         </Pressable>
       </Modal>
+      <Wrapped visible={wrap} onClose={() => setWrap(false)} ss={sessions} tasks={tasks} />
       <DayDetail day={day} sessions={d.ss} tasks={tasks} onClose={() => setDay(null)} />
     </ScrollView>
   );

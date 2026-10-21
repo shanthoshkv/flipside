@@ -17,6 +17,11 @@ async function snapshot() {
   const nextExam = exams.map((e) => ({ ...e, days: daysUntil(e.date) })).filter((e) => e.days >= 0).sort((a, b) => a.days - b.days)[0] ?? null;
   const topics = nextExam ? tasks.filter((k) => k.parent_id === nextExam.task_id) : [];
   const lastUsed = (id: number) => Math.max(0, ...ss.filter((s) => s.task_id === id).map((s) => s.end_ts ?? s.start_ts));
+  // privacy mode: names never reach the home screen
+  if (st.widgetPrivate && JSON.parse(st.widgetPrivate)) {
+    tasks.forEach((k, i) => { k.name = k.parent_id ? 'Topic' : `Subject ${i + 1}`; });
+    if (nextExam) nextExam.name = 'Exam';
+  }
   return {
     nextExam, examTopics: { total: topics.length, done: topics.filter((k) => k.done).length },
     dueCards: cards.filter((c) => c.due <= now).length,

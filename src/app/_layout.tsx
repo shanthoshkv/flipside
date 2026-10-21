@@ -9,6 +9,7 @@ import { ReducedMotionConfig, ReduceMotion } from 'react-native-reanimated';
 import { loadFont } from '../appearance';
 import { runBackup } from '../backup';
 import { Onboarding } from '../components/Onboarding';
+import { UndoBar } from '../components/UndoBar';
 import { initDb, setSetting } from '../db';
 import { useData } from '../data';
 import { useSettings } from '../store';
@@ -67,8 +68,9 @@ export default function Root() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: t.bg }}>
       <ReducedMotionConfig mode={ReduceMotion.System} />
       <StatusBar style={t.isDark ? 'light' : 'dark'} />
-      <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <View style={{ flex: 1, backgroundColor: t.bg, width: '100%', maxWidth: 760, alignSelf: 'center' }}>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }} />
+        <UndoBar />
         {!onboarded && <Onboarding />}
       </View>
     </GestureHandlerRootView>

@@ -18,7 +18,7 @@ for (const f of files) {
 }
 const keys = [...found.keys()].sort();
 if (process.argv.includes('--missing')) {
-  const t = fs.readFileSync('src/locales/strings.ts', 'utf8') + fs.readFileSync('src/locales/strings2.ts', 'utf8');
+  const t = fs.readFileSync('src/locales/strings.ts', 'utf8') + fs.readFileSync('src/locales/strings2.ts', 'utf8') + fs.readFileSync('src/locales/strings3.ts', 'utf8');
   const have = new Set([...t.matchAll(/^\s*\[\s*'((?:[^'\\]|\\.)*)'/gm)].map((m) => m[1].replace(/\\'/g, "'")));
   const missing = keys.filter((k) => !have.has(k));
   console.log(missing.join('\n')); console.error(`${missing.length} missing of ${keys.length}`);

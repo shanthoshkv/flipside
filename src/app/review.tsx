@@ -13,6 +13,7 @@ import { useSettings } from '../store';
 import { font, radius, space, useTheme } from '../theme';
 import { startOfDay } from '../util';
 import { withBoundary } from '../components/ErrorBoundary';
+import { useFlipReveal } from '../engine/flipReveal';
 
 /** Review queue: due reviews then new cards (daily limits apply). "Again" cards return later this session. */
 function Review() {
@@ -38,6 +39,7 @@ function Review() {
   }, []);
 
   const cur = queue?.[0];
+  useFlipReveal(cfg.flipReveal && !!cur && !show, () => { tap(); setShow(true); });
   const prev = useMemo(() => (cur ? previews(cur, Date.now(), algo, retention) : []), [cur?.id, show]);
   const label = (c: Card) => (c.task_id === 0 ? '' : tasks.find((k) => k.id === c.task_id)?.name ?? '');
 
@@ -57,6 +59,9 @@ function Review() {
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(2), paddingBottom: bottom + space(3), paddingHorizontal: space(4), gap: space(4) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={{ minHeight: 48, justifyContent: 'center' }}><Txt v="h3" c={t.accentText}>‹ Back</Txt></Pressable>
+        <Pressable accessibilityRole="switch" accessibilityState={{ checked: cfg.flipReveal }} onPress={() => { tap(); cfg.set('flipReveal', !cfg.flipReveal); }} style={{ minHeight: 48, justifyContent: 'center' }}>
+          <Txt v="small" c={cfg.flipReveal ? t.accentText : t.muted}>{cfg.flipReveal ? 'Flip to reveal: on' : 'Flip to reveal: off'}</Txt>
+        </Pressable>
         <Txt v="label">{queue === null ? '' : cur ? tr('{n} left', { n: queue.length }) : 'Done'}</Txt>
       </View>
 
@@ -77,7 +82,7 @@ function Review() {
                   {!!cur.back && <Txt raw style={{ fontSize: 20, textAlign: 'center', lineHeight: 28 }}>{cur.back}</Txt>}
                 </>
               )}
-              {!show && <Txt v="small" style={{ textAlign: 'center' }}>Tap to show answer</Txt>}
+              {!show && <Txt v="small" style={{ textAlign: 'center' }}>{cfg.flipReveal ? 'Think with the phone face-down, lift to see the answer' : 'Tap to show answer'}</Txt>}
             </ScrollView>
           </Pressable>
           {show ? (

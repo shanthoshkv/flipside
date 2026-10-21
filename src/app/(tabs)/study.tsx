@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Btn, Card, EmptyState, Txt, tap } from '../../components/ui';
-import { addExam, addTask, archiveTask, deleteExam, setTopicDone, setWeeklyGoal } from '../../db';
+import { addExam, addTask, archiveTask, deleteExam, restoreRow, setTopicDone, setWeeklyGoal, unarchiveTask } from '../../db';
+import { useUndo } from '../../undo';
 import { Stepper } from '../../components/controls';
 import { useData } from '../../data';
 import { totalMs } from '../../stats';
@@ -36,8 +37,8 @@ function Study() {
   };
   const cover = (id: number) => { const tp = tasks.filter((k) => k.parent_id === id); return { total: tp.length, done: tp.filter((k) => k.done).length }; };
   const done = async (fn: () => Promise<unknown>) => { await fn(); await reload(); };
-  const confirmDel = (name: string, fn: () => Promise<unknown>) =>
-    Alert.alert(tr('Delete "{name}"?', { name }), tr('Past focus time stays in your stats.'), [{ text: tr('Cancel'), style: 'cancel' }, { text: tr('Delete'), style: 'destructive', onPress: () => done(fn) }]);
+  const confirmDel = (name: string, fn: () => Promise<unknown>, undo: () => Promise<unknown>) =>
+    done(fn).then(() => useUndo.getState().show(tr('Deleted "{name}"', { name }), undo));
 
   const dateOk = ed !== '';
   const saveExam = async () => {
@@ -71,7 +72,7 @@ function Study() {
           const days = daysUntil(e.date), c = cover(e.task_id), left = c.total - c.done;
           const sub = subjects.find((k) => k.id === e.task_id);
           return (
-            <Pressable key={e.id} onLongPress={() => confirmDel(e.name, () => deleteExam(e.id))}>
+            <Pressable key={e.id} onLongPress={() => confirmDel(e.name, () => deleteExam(e.id), () => restoreRow('exams', e))}>
               <Card i={i} style={{ gap: 8 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <Txt v="h3" raw style={{ flex: 1, marginRight: space(2) }}>{e.name}</Txt>
@@ -99,7 +100,7 @@ function Study() {
           const a = subj(s.id), c = cover(s.id), topics = tasks.filter((k) => k.parent_id === s.id), isOpen = open === s.id;
           return (
             <Card key={s.id} i={i} style={{ gap: space(2) }}>
-              <Pressable onPress={() => { tap(); setOpen(isOpen ? null : s.id); setNewTopic(''); }} onLongPress={() => confirmDel(s.name, () => archiveTask(s.id))}
+              <Pressable onPress={() => { tap(); setOpen(isOpen ? null : s.id); setNewTopic(''); }} onLongPress={() => confirmDel(s.name, () => archiveTask(s.id), () => unarchiveTask(s.id))}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), minHeight: 48 }}>
                 <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: s.color }} />
                 <View style={{ flex: 1 }}>
@@ -114,7 +115,7 @@ function Study() {
                   {topics.map((k) => {
                     const x = info.get(k.id);
                     return (
-                      <Pressable key={k.id} onPress={() => { tap(); done(() => setTopicDone(k.id, !k.done)); }} onLongPress={() => confirmDel(k.name, () => archiveTask(k.id))}
+                      <Pressable key={k.id} onPress={() => { tap(); done(() => setTopicDone(k.id, !k.done)); }} onLongPress={() => confirmDel(k.name, () => archiveTask(k.id), () => unarchiveTask(k.id))}
                         accessibilityRole="checkbox" accessibilityState={{ checked: !!k.done }} accessibilityLabel={k.name}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), minHeight: 48 }}>
                         <View style={{ width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: k.done ? t.success : t.dotOff, backgroundColor: k.done ? t.success : 'transparent', alignItems: 'center', justifyContent: 'center' }}>

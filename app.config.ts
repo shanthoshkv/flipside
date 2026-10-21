@@ -13,7 +13,7 @@ const config: ExpoConfig = {
   slug: 'flipside',
   scheme: 'flipside',
   version: '1.0.0',
-  orientation: 'portrait',
+  orientation: 'default', // tablets and landscape; content is width-capped in the root layout
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
   android: {
