@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flipside, a study timer you start by putting the phone down</title>
+  <meta name="description" content="Flipside is a free Android study timer. Lay the phone face-down and the clock starts. Pick it up and it stops. Plan, flashcards and stats stay on the phone.">
+  <meta name="theme-color" content="#0B0B10">
+  <meta property="og:title" content="Flipside">
+  <meta property="og:description" content="Lay your phone face-down to start a study timer. Pick it up to stop. Free, offline, Android.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B0B10'/%3E%3Crect x='10' y='5' width='12' height='22' rx='3' fill='none' stroke='%23FFB547' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FFB547'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0B0B10;
+      --s1: #14141C;
+      --s2: #1C1C27;
+      --tx: #F4F4F8;
+      --mu: #8B8BA0;
+      --line: rgba(255, 255, 255, .08);
+      --a: #FFB547;
+      --b: #FF6B6B;
+      --at: #FFB547;
+      --ink: #1A1206;
+      --off: #262633;
+      --ok: #4ADE80;
+      --warn: #FF6B6B;
+      color-scheme: dark;
+    }
+    :root[data-theme="light"] {
+      --bg: #FAF8F5;
+      --s1: #FFFFFF;
+      --s2: #F0EDE8;
+      --tx: #14141C;
+      --mu: #5F5F72;
+      --line: rgba(0, 0, 0, .08);
+      --off: #D9D4CC;
+      --ok: #16A34A;
+      --warn: #C62828;
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--tx);
+      font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.7;
+      font-variant-ligatures: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    a { color: var(--at); }
+    a:hover { text-decoration-thickness: 2px; }
+    :focus-visible { outline: 2px solid var(--a); outline-offset: 3px; }
+    .skip {
+      position: absolute; left: 12px; top: -48px; z-index: 30;
+      background: var(--a); color: var(--ink); text-decoration: none;
+      padding: 8px 12px; border-radius: 10px; font-weight: 600;
+    }
+    .skip:focus { top: 10px; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
+    .prose { max-width: 68ch; }
+    h1, h2, h3 { font-weight: 700; line-height: 1.25; letter-spacing: -0.03em; margin: 0; }
+    h1 { font-size: clamp(1.7rem, 3.6vw, 2.7rem); }
+    h2 { font-size: clamp(1.35rem, 2.4vw, 1.85rem); margin-bottom: 16px; }
+    h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    p { margin: 0 0 14px; }
+    section { padding: 76px 0; }
+    .lede { font-size: 1.05rem; color: var(--tx); }
+    .quiet { color: var(--mu); }
+    .note { color: var(--mu); font-size: 0.92rem; }
+
+    nav {
+      position: sticky; top: 0; z-index: 20;
+      background: color-mix(in srgb, var(--bg) 86%, transparent);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav-in { display: flex; align-items: center; gap: 16px; min-height: 64px; flex-wrap: wrap; padding: 8px 0; }
+    .logo { display: flex; align-items: center; gap: 10px; color: var(--tx); text-decoration: none; font-weight: 700; }
+    .logo i {
+      width: 14px; height: 22px; border-radius: 4px; border: 2px solid var(--a); display: block; position: relative;
+    }
+    .logo i::after {
+      content: ""; position: absolute; left: 3px; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--a);
+    }
+    .links { display: flex; gap: 14px; margin-left: auto; overflow-x: auto; }
+    .links a { color: var(--mu); text-decoration: none; font-size: 0.86rem; white-space: nowrap; padding: 4px 0; }
+    .links a[aria-current="true"] { color: var(--tx); box-shadow: inset 0 -2px 0 var(--a); }
+    .nav-actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 44px; padding: 8px 16px; border-radius: 16px;
+      background: var(--s2); color: var(--tx); text-decoration: none;
+      border: 1px solid var(--line); cursor: pointer; font-weight: 600; font-size: 0.92rem;
+    }
+    .btn:hover { border-color: var(--a); }
+    .btn.pri { background: var(--a); color: var(--ink); border-color: transparent; }
+    .btn.pri:hover { filter: brightness(1.05); }
+    .btn.small { min-height: 38px; padding: 6px 12px; border-radius: 12px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 12px; }
+
+    .hero { padding: 48px 0 28px; }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 36px; align-items: center; }
+    .stage { position: relative; display: grid; justify-items: center; }
+    .device {
+      width: 270px; height: 540px; padding: 0; border: 0; background: transparent;
+      cursor: pointer; perspective: 1100px; border-radius: 40px;
+    }
+    .cube {
+      display: block; width: 100%; height: 100%; position: relative;
+      transform-style: preserve-3d;
+      transition: transform .8s cubic-bezier(.45, .05, .2, 1);
+    }
+    .cube.intro { animation: consider 2.6s cubic-bezier(.45, 0, .2, 1) .35s 1 both; }
+    .cube.down { animation: none; transform: rotateX(180deg); }
+    @keyframes consider {
+      0%, 100% { transform: rotateX(0deg); }
+      45%, 62% { transform: rotateX(20deg) translateY(10px); }
+    }
+    .face {
+      position: absolute; inset: 0; border-radius: 38px; overflow: hidden;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      background: #121218; padding: 10px;
+    }
+    .face.front { transform: rotateX(0deg); }
+    .face.back { transform: rotateX(180deg); background: #050506; }
+    .glass {
+      height: 100%; border-radius: 30px; background: var(--bg);
+      display: flex; flex-direction: column; padding: 16px 14px 14px; position: relative;
+    }
+    .notch {
+      width: 64px; height: 8px; border-radius: 8px; background: var(--s2); margin: 0 auto 12px;
+    }
+    .app-name { font-weight: 700; font-size: 1.15rem; }
+    .chip {
+      margin-top: 12px; align-self: flex-start;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #6FA8DC; color: var(--ink); font-weight: 600; font-size: 0.82rem;
+      border-radius: 999px; padding: 7px 12px;
+    }
+    .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); display: block; }
+    .big {
+      margin-top: 18px; font-weight: 700; font-size: 3rem; letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums; line-height: 1;
+    }
+    .task-label { color: var(--mu); font-size: 0.78rem; font-weight: 600; margin-top: 8px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .seg {
+      margin-top: 14px; display: flex; background: var(--s2); border-radius: 16px; padding: 4px; gap: 2px;
+    }
+    .seg span { flex: 1; text-align: center; font-size: 0.68rem; color: var(--mu); padding: 8px 2px; border-radius: 12px; }
+    .seg span.on { background: var(--s1); color: var(--at); font-weight: 600; }
+    .mini { width: 92px; height: 92px; margin: 16px auto 8px; position: relative; display: grid; place-items: center; }
+    .mini-ring {
+      position: absolute; inset: 4px; border: 2px solid var(--a); border-radius: 50%; opacity: 0.55;
+    }
+    .stage.armed .mini-ring { animation: halo 1.8s cubic-bezier(.15, .6, .4, 1) infinite; }
+    @keyframes halo {
+      0% { transform: scale(.78); opacity: .55; }
+      100% { transform: scale(1.18); opacity: 0; }
+    }
+    .mini-body {
+      width: 34px; height: 56px; border-radius: 9px; border: 2px solid var(--a); background: var(--s2); position: relative;
+    }
+    .mini-body::before {
+      content: ""; position: absolute; left: 8px; top: 5px; width: 14px; height: 3px; border-radius: 2px; background: var(--a); opacity: .6;
+    }
+    .mini-body::after {
+      content: ""; position: absolute; left: 9px; top: 22px; width: 12px; height: 12px; border-radius: 50%; background: var(--a);
+    }
+    .app-hint { color: var(--mu); font-size: 0.72rem; line-height: 1.45; text-align: center; margin-top: auto; }
+    .run {
+      height: 100%; border-radius: 30px; background: #000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #FF6B6B; }
+    .stage.running .dot { animation: pulse 2.4s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+    .dim { color: #4A4A58; font-size: 2.4rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+    .dim-label { color: #3A3A46; font-size: 0.8rem; }
+    .shadow {
+      width: 160px; height: 16px; margin-top: 16px; border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(0, 0, 0, .45), transparent 70%);
+      transition: transform .8s cubic-bezier(.45, .05, .2, 1), opacity .8s;
+    }
+    .stage.running .shadow { transform: scaleX(1.45); opacity: .85; }
+    .hint { text-align: center; max-width: 280px; margin: 14px auto 0; }
+    .reflect {
+      margin-top: 16px; background: var(--s1); border: 1px solid var(--line);
+      border-radius: 24px; padding: 16px;
+    }
+    .faces { display: flex; gap: 6px; margin: 10px 0; }
+    .faces button {
+      flex: 1; min-height: 58px; border: 0; border-radius: 14px; background: var(--s2); cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px;
+    }
+    .faces button strong { font-size: 1rem; }
+    .faces button span { font-size: 0.62rem; color: var(--mu); }
+    .faces button[aria-pressed="true"] { background: var(--a); color: var(--ink); }
+    .faces button[aria-pressed="true"] span { color: var(--ink); }
+    .reflect-actions { display: flex; gap: 8px; }
+    .reflect-actions .btn { flex: 1; }
+
+    .sheet {
+      background: var(--s1); border: 1px solid var(--line); border-radius: 24px; padding: 18px;
+      margin-top: 22px;
+    }
+    .modes { display: flex; background: var(--s2); border-radius: 16px; padding: 4px; gap: 4px; }
+    .modes button {
+      flex: 1; min-height: 44px; border: 0; border-radius: 12px; background: transparent;
+      color: var(--mu); cursor: pointer; font-weight: 600;
+    }
+    .modes button[aria-selected="true"] { background: var(--s1); color: var(--at); }
+    .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .presets button {
+      min-height: 40px; padding: 6px 14px; border: 0; border-radius: 999px;
+      background: var(--s2); cursor: pointer; font-weight: 600;
+    }
+    .presets button[aria-pressed="true"] { background: var(--a); color: var(--ink); }
+    .clock-block { text-align: center; padding: 18px 0 8px; }
+    .clock {
+      font-size: clamp(3rem, 8vw, 4.6rem); font-weight: 700; letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums; line-height: 1;
+    }
+    .clock-label { color: var(--mu); margin-top: 8px; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; margin-top: 8px; }
+    .subjects { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+    .subjects li { display: flex; gap: 10px; align-items: flex-start; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 6px; flex: none; }
+    .subjects strong { display: block; }
+    .subjects .meta { display: block; color: var(--mu); font-size: 0.86rem; }
+    .subjects .soon { color: var(--warn); font-weight: 600; }
+    .topics { margin: 4px 0 0; padding: 0; list-style: none; color: var(--mu); font-size: 0.86rem; }
+    .card3d {
+      position: relative; display: block; width: 100%; height: 168px; perspective: 900px;
+      cursor: pointer; border: 0; background: transparent; padding: 0; text-align: left;
+    }
+    .card3d .inner {
+      position: absolute; inset: 0; transform-style: preserve-3d;
+      transition: transform .55s cubic-bezier(.4, .1, .2, 1);
+    }
+    .card3d.flipped .inner { transform: rotateY(180deg); }
+    .card3d p {
+      position: absolute; inset: 0; margin: 0; border-radius: 18px; background: var(--s2);
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: 18px; line-height: 1.45; overflow: hidden;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      transform: rotateY(0deg);
+    }
+    .card3d p + p { transform: rotateY(180deg); color: var(--at); }
+    .grades { display: flex; gap: 8px; margin-top: 12px; }
+    .grades button {
+      flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid var(--line);
+      background: var(--s2); cursor: pointer; font-weight: 600;
+    }
+    .grades button:hover { border-color: var(--a); }
+
+    .subj-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .subj-row button {
+      min-height: 44px; display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--s1); cursor: pointer; font-weight: 600;
+    }
+    .subj-row button i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+    .subj-row button[aria-pressed="true"] { border-color: transparent; color: var(--ink); }
+    .subj-row button[aria-pressed="true"] i { background: var(--ink) !important; }
+    .plan-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--mu); font-size: 0.82rem; margin-bottom: 10px; align-items: center; }
+    .plan-legend .mins { margin-left: auto; }
+    .swatch { display: inline-block; width: 18px; height: 10px; border-radius: 4px; vertical-align: -1px; margin-right: 6px; }
+    .swatch.plan { background: transparent; box-shadow: inset 0 0 0 1.5px var(--a); }
+    .swatch.done { background: var(--a); }
+    #grid { touch-action: none; }
+    .prow { display: flex; align-items: center; }
+    .prow .hr { width: 54px; flex: none; color: var(--mu); font-size: 0.72rem; }
+    .slots { display: flex; flex: 1; }
+    .slot {
+      flex: 1; height: 26px; margin: 3px 1.5px; border: 0; padding: 0; background: var(--s2);
+      border-radius: 7px; cursor: pointer;
+    }
+    .slot.plan { background: color-mix(in srgb, var(--c) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--c); }
+    .slot.plan.join-l { box-shadow: inset 0 1.5px 0 var(--c), inset 0 -1.5px 0 var(--c), inset -1.5px 0 0 var(--c); }
+    .slot.plan.join-r { box-shadow: inset 0 1.5px 0 var(--c), inset 0 -1.5px 0 var(--c), inset 1.5px 0 0 var(--c); }
+    .slot.plan.join-l.join-r { box-shadow: inset 0 1.5px 0 var(--c), inset 0 -1.5px 0 var(--c); }
+    .slot.done { background: var(--c); box-shadow: none; }
+    .slot.join-l { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+    .slot.join-r { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .slot.both { position: relative; }
+    .slot.both::after {
+      content: ""; position: absolute; left: 5px; right: 5px; top: 4px; height: 3px;
+      border-radius: 2px; background: var(--bg); opacity: .5;
+    }
+    .mins { font-variant-numeric: tabular-nums; }
+    .diary { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .diary input {
+      min-height: 42px; border: 0; border-radius: 12px; background: var(--s2); padding: 8px 12px;
+    }
+    .plan-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+    .chart { position: relative; height: 180px; display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; }
+    .chart .goal {
+      position: absolute; left: 0; right: 0; height: 1px; background: var(--mu); opacity: .45; pointer-events: none;
+    }
+    .chart button {
+      flex: 1; border: 0; padding: 0; border-radius: 6px 6px 3px 3px; background: var(--a);
+      cursor: pointer; min-height: 4px;
+    }
+    .chart button[aria-current="true"] { outline: 2px solid var(--tx); outline-offset: 2px; }
+    .chart button.hot { background: var(--b); }
+    .chart-labels { display: flex; gap: 8px; color: var(--mu); font-size: 0.75rem; }
+    .chart-labels span { flex: 1; text-align: center; }
+    .daylog { margin-top: 14px; }
+    .daylog li { margin: 0 0 10px; list-style: none; }
+    .daylog ul { margin: 8px 0 0; padding: 0; }
+    .hours { display: flex; align-items: flex-end; gap: 3px; height: 76px; margin-top: 8px; }
+    .hours i { flex: 1; display: block; background: var(--a); border-radius: 2px; min-height: 2px; opacity: .85; }
+    .hour-labels { display: flex; justify-content: space-between; color: var(--mu); font-size: 0.72rem; }
+    .hrows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .hrow { display: grid; grid-template-columns: 88px 1fr 52px; gap: 8px; align-items: center; font-size: 0.86rem; }
+    .hrow b { height: 10px; border-radius: 5px; display: block; }
+    .hrow span:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--mu); }
+    .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); gap: 3px; margin-top: 8px; width: max-content; max-width: 100%; overflow-x: auto; }
+    .heat i { width: 12px; height: 12px; border-radius: 3px; background: var(--off); display: block; }
+    .heat i[data-l="1"] { background: var(--a); opacity: .35; }
+    .heat i[data-l="2"] { background: var(--a); opacity: .55; }
+    .heat i[data-l="3"] { background: var(--a); opacity: .78; }
+    .heat i[data-l="4"] { background: var(--a); opacity: 1; }
+    .streak { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+    .streak i { width: 16px; height: 16px; border-radius: 4px; background: var(--a); display: block; }
+    .streak i.off { background: var(--off); }
+    .streak i.rest { background: transparent; box-shadow: inset 0 0 0 2px var(--a); }
+
+    .sounds { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sounds button {
+      min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--s2); cursor: pointer;
+    }
+    .sounds button[aria-pressed="true"] { background: var(--a); color: var(--ink); border-color: transparent; }
+    .launcher {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      background: #0E0E14; border-radius: 28px; padding: 12px; color: #F4F4F8;
+    }
+    .widget { background: #14141C; border-radius: 22px; padding: 14px; min-height: 112px; }
+    .widget.wide { grid-column: 1 / -1; }
+    .widget .k { color: #8B8BA0; font-size: 0.68rem; font-weight: 700; letter-spacing: .08em; }
+    .widget .n { font-size: 1.6rem; font-weight: 700; color: #FFB547; line-height: 1.2; }
+    .widget .n.warn { color: #FF6B6B; }
+    .widget p { margin: 2px 0 0; color: #8B8BA0; font-size: 0.78rem; }
+    .widget strong { color: #F4F4F8; font-size: 0.95rem; }
+    .wrow { display: flex; align-items: center; gap: 10px; height: 100%; }
+    .blob { width: 36px; height: 36px; border-radius: 50%; background: #6FA8DC; flex: none; }
+    .wbars { display: flex; align-items: flex-end; gap: 6px; height: 54px; margin-top: 8px; }
+    .wbars i { flex: 1; background: #FFB547; border-radius: 4px; display: block; }
+    .wbars i:last-child { background: #FF6B6B; }
+    .subjs { display: flex; gap: 8px; }
+    .subjs span {
+      flex: 1; background: #1C1C27; border-radius: 14px; padding: 10px; font-weight: 700; font-size: 0.82rem;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .subjs em { width: 8px; height: 8px; border-radius: 50%; display: block; font-style: normal; }
+    .ring-row { display: flex; align-items: center; gap: 12px; }
+    .accents { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+    .accents button { width: 36px; height: 36px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 0; }
+    .accents button[aria-pressed="true"] { border-color: var(--tx); }
+    pre {
+      background: var(--s2); border-radius: 16px; padding: 14px 16px; overflow: auto;
+      font-size: 0.82rem; line-height: 1.55; margin: 12px 0 0;
+    }
+    footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--mu); font-size: 0.88rem; text-align: center; }
+
+    @media (max-width: 860px) {
+      html { scroll-padding-top: 108px; }
+      .hero-grid, .split { grid-template-columns: 1fr; }
+      .nav-in { row-gap: 2px; }
+      .nav-actions { order: 2; margin-left: auto; }
+      .links { order: 3; width: 100%; margin-left: 0; }
+      section { scroll-margin-top: 108px; padding: 56px 0; }
+      .device { width: 240px; height: 480px; }
+      .big { font-size: 2.5rem; }
+      .prow .hr { width: 46px; font-size: 0.65rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .cube, .cube.intro, .mini-ring, .dot { animation: none !important; transition: none !important; }
+      .card3d .inner, .shadow { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the writing</a>
+  <nav>
+    <div class="wrap nav-in">
+      <a class="logo" href="#top"><i></i>Flipside</a>
+      <div class="links">
+        <a href="#how">How it works</a>
+        <a href="#timer">Timer</a>
+        <a href="#plan">Plan</a>
+        <a href="#study">Cards</a>
+        <a href="#stats">Stats</a>
+        <a href="#get">Install</a>
+      </div>
+      <div class="nav-actions">
+        <a class="btn pri small" href="https://github.com/shanthoshkv/flipside/releases/latest/download/FlipSide.apk">Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>Put the phone face-down.<br>The timer starts.</h1>
+        <p class="lede">I kept opening my phone to start a study timer, and then I was just on my phone. Flipside starts when the screen is on the desk, and stops when you pick it up.</p>
+        <p>You still choose the subject first. After that you don't have to tap anything. The rest of the app is a plan, flashcards, and a record of the hours, because a clock by itself doesn't tell you what to study next.</p>
+        <div class="cta">
+          <a class="btn pri" href="https://github.com/shanthoshkv/flipside/releases/latest/download/FlipSide.apk">Download the APK</a>
+          <a class="btn" href="https://github.com/shanthoshkv/flipside">Read the source</a>
+        </div>
+        <p class="note">Android only. The file is about 136 MB. Free, MIT licence. There is no iPhone version.</p>
+      </div>
+      <div>
+        <div class="stage armed" id="stage">
+          <button class="device" id="device" type="button" aria-pressed="false" aria-describedby="hint" aria-label="Put the phone face-down and start the timer">
+            <span class="cube" id="cube">
+              <span class="face front">
+                <span class="glass">
+                  <span class="notch"></span>
+                  <span class="app-name">Flipside</span>
+                  <span class="chip"><i></i>Physics</span>
+                  <span class="big" id="face-time">00:00</span>
+                  <span class="task-label">Physics</span>
+                  <span class="seg" aria-hidden="true"><span class="on">Stopwatch</span><span>Pomodoro</span><span>Flowtime</span></span>
+                  <span class="mini" aria-hidden="true"><span class="mini-ring"></span><span class="mini-body"></span></span>
+                  <span class="app-hint" id="app-hint">Choose a task, then put your phone face-down to start. Lift it to stop.</span>
+                </span>
+              </span>
+              <span class="face back">
+                <span class="run">
+                  <span class="dot"></span>
+                  <span class="dim" id="back-time">00:00</span>
+                  <span class="dim-label">Physics</span>
+                </span>
+              </span>
+            </span>
+          </button>
+          <div class="shadow"></div>
+        </div>
+        <p class="hint note" id="hint">Press the phone. A real one starts about a second after it is face-down.</p>
+        <div class="reflect" id="reflect" hidden>
+          <h3>How was that focus?</h3>
+          <p class="note" id="reflect-time"></p>
+          <div class="faces" id="faces">
+            <button type="button" data-q="Rough"><strong>1</strong><span>Rough</span></button>
+            <button type="button" data-q="Meh"><strong>2</strong><span>Meh</span></button>
+            <button type="button" data-q="Okay"><strong>3</strong><span>Okay</span></button>
+            <button type="button" data-q="Good"><strong>4</strong><span>Good</span></button>
+            <button type="button" data-q="Deep"><strong>5</strong><span>Deep</span></button>
+          </div>
+          <div class="reflect-actions">
+            <button class="btn" type="button" id="reflect-skip">Skip</button>
+            <button class="btn pri" type="button" id="reflect-save">Save</button>
+          </div>
+          <p class="note" id="reflect-note" style="margin:10px 0 0">This rating stays in the tab. The app saves it next to the session.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="content">
+    <section id="how">
+      <div class="wrap prose">
+        <h2>The desk is the button</h2>
+        <p>Open the app and it is already listening. The first launch asks for one subject and a daily goal. Physics, organic, whatever you are actually studying. Lay the phone screen-down on the desk. After it has been down for a second, the session starts.</p>
+        <p>The screen goes almost black. The time stays on it, in dim type, so the phone is not a lamp on the desk. Press the phone at the top of this page and you get that screen.</p>
+        <p>Pick it up and hold it for a little over half a second. That ends the session. The wait is there so a knock on the table does not throw away an hour. If it was down for less than 10 seconds, nothing is saved. You changed your mind, and the log does not need that.</p>
+        <p>There is a Start button in Settings if flipping feels wrong, and a pause option. Lift to pause, put it down again to continue. Phones do not all sit the same way. Sensitivity is Low, Medium or High. Low wants the phone flat and still. High starts and stops more easily. You can also calibrate: three seconds face-down on the desk you actually use, then three seconds held the way you hold it when you check the time. After that, the Low, Medium and High choice is left alone.</p>
+        <p>The clock is not a counter the app adds to. It stores the start time and subtracts. Every 15 seconds it writes the time down. If the battery dies, or Android closes the app, the next launch ends the session at that last note. Locking the screen does not stop it. Leaving the app does not stop it. A foreground notification keeps the sensor awake. You can pause that listening when you want the battery, and turn it back on when you sit down.</p>
+      </div>
+    </section>
+
+    <section id="timer">
+      <div class="wrap">
+        <div class="prose">
+          <h2>Three ways to count, one way to stop</h2>
+          <p>Stopwatch, Pomodoro, or Flowtime. You pick before you flip. Putting the phone down still starts it, and picking it up still stops it.</p>
+          <p>Stopwatch counts up until you lift the phone.</p>
+          <p>Pomodoro counts down. The lengths in the app are 25/5, 50/10, 52/17 and 90/20. A short beep marks the end of a block. Break time is stored as a break, so five minutes of standing up does not turn into five more minutes of physics.</p>
+          <p>Flowtime has no length. You work until you stop. The app then suggests a break of about a fifth of that time, at least 5 minutes and at most 25.</p>
+          <p>When a session ends, the app asks how it felt. Rough, Meh, Okay, Good, or Deep. You can add a line about what you covered, or skip it. If you forgot the phone and used a kitchen timer, open the day and add the session by hand. It is marked as added by hand, so you can tell later.</p>
+        </div>
+        <div class="sheet" style="max-width:720px">
+          <div class="modes" id="modes" role="tablist">
+            <button type="button" role="tab" data-mode="stopwatch" aria-selected="true">Stopwatch</button>
+            <button type="button" role="tab" data-mode="pomodoro" aria-selected="false">Pomodoro</button>
+            <button type="button" role="tab" data-mode="flowtime" aria-selected="false">Flowtime</button>
+          </div>
+          <div class="presets" id="presets" hidden>
+            <button type="button" data-focus="25" data-brk="5" aria-pressed="true">25 / 5</button>
+            <button type="button" data-focus="50" data-brk="10" aria-pressed="false">50 / 10</button>
+            <button type="button" data-focus="52" data-brk="17" aria-pressed="false">52 / 17</button>
+            <button type="button" data-focus="90" data-brk="20" aria-pressed="false">90 / 20</button>
+          </div>
+          <div class="clock-block">
+            <div class="clock" id="clock">00:00</div>
+            <div class="clock-label" id="clock-label">Physics</div>
+          </div>
+          <p class="note" id="mode-note">Counts up until you lift the phone.</p>
+          <button class="btn pri" type="button" id="play">Run it, sped up</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="plan">
+      <div class="wrap">
+        <div class="prose">
+          <h2>A day of ten-minute blocks</h2>
+          <p>The Plan tab is the whole day, six blocks to an hour. A hollow block is what you meant to study. A solid block is what the timer recorded, in that subject's colour. If you planned it and also did it, the block is solid with a thin mark across the top.</p>
+          <p>Tap a block, or drag across a row, to paint with the subject you have selected. Dragging over a block of that same subject rubs it out. Recorded time stays. You cannot erase an hour you already sat by painting over it.</p>
+          <p>The screen in the app runs from midnight to midnight, and you can move through two weeks. The week can start on Monday or Sunday. This example is 2pm to 10pm, so it fits on the page. The default planning window is 5pm to 10pm, in blocks of 50 minutes. Both can be changed.</p>
+          <p>Auto-plan is for the days you will not paint by hand. It looks at your exams and topics, puts the nearest exam first, and mixes subjects so one of them does not eat the whole evening. It skips time you already planned, and today it starts at the next free slot, not at midnight you have already missed. The button here is a smaller version of that. It fills free time from 5 to 10 with these three subjects, in 50-minute blocks. It does not know about your exams.</p>
+          <p>Each day also has a diary of three lines. The lines below are an example. Editing them does not save anywhere.</p>
+        </div>
+        <div class="sheet">
+          <div class="subj-row" id="subjs" role="group" aria-label="Subject to paint with"></div>
+          <div class="plan-legend">
+            <span><i class="swatch plan"></i>Planned</span>
+            <span><i class="swatch done"></i>Focused</span>
+            <span class="mins" id="plan-count"></span>
+          </div>
+          <div id="grid" aria-label="Example plan from 2pm to 10pm"></div>
+          <div class="plan-actions">
+            <button class="btn pri" type="button" id="auto">Auto-plan 5pm to 10pm</button>
+            <button class="btn" type="button" id="clear">Clear the plan</button>
+          </div>
+          <div class="diary">
+            <input id="d1" aria-label="Diary line 1" value="Friction problems were slow.">
+            <input id="d2" aria-label="Diary line 2" value="Two sources for the essay, not the whole book.">
+            <input id="d3" aria-label="Diary line 3" value="Phone was down by 7. Stopped at 10.">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="study">
+      <div class="wrap">
+        <div class="prose">
+          <h2>Subjects, exams, and the cards</h2>
+          <p>A subject has a colour, a weekly target in minutes, and topics under it. Tick a topic when you have covered it. That tick is what the coverage number is made of. Archive a subject when the course is over. It leaves the lists, and the old sessions stay in the stats.</p>
+          <p>An exam is a name, a date, and a subject. The home screen shows the next one, how many days are left, and how many of that subject's topics are done. Under a week, the number is shown in the warning colour. The same block can sit on your home screen as a widget.</p>
+          <p>Flashcards are separate from the timer. In Settings you pick FSRS or SM-2. FSRS schedules the next review from how hard the card felt, and aims at a recall rate you set. The default is 90%. SM-2 is the older method, still there if you already know it. New cards and reviews are capped per day, so a deck of 2,000 cards does not become the whole night. The defaults are 20 new cards and 200 reviews.</p>
+          <p>A card can be a question, a sentence with a blank, the same fact turned around so the answer is the question, or a picture from your gallery. You can paste a pile of cards from text instead of typing them one by one. A widget tells you how many are due, and opens the review.</p>
+        </div>
+        <div class="split">
+          <div class="sheet">
+            <h3>An example term</h3>
+            <ul class="subjects">
+              <li>
+                <span class="dot" style="background:#6FA8DC"></span>
+                <div>
+                  <strong>Physics</strong>
+                  <span class="meta">4 of 9 topics · 4h a week</span>
+                  <span class="meta">Exam in 18 days</span>
+                  <ul class="topics"><li>Newton, up to friction</li><li>Waves, not done</li></ul>
+                </div>
+              </li>
+              <li>
+                <span class="dot" style="background:#E57373"></span>
+                <div>
+                  <strong>Organic</strong>
+                  <span class="meta">2 of 6 topics · 3h a week</span>
+                  <span class="meta soon">Exam in 6 days</span>
+                  <ul class="topics"><li>Naming</li><li>Substitution, not done</li></ul>
+                </div>
+              </li>
+              <li>
+                <span class="dot" style="background:#E8A55A"></span>
+                <div>
+                  <strong>History</strong>
+                  <span class="meta">1 of 4 topics · 2h a week</span>
+                  <span class="meta">Essay, no exam date yet</span>
+                  <ul class="topics"><li>Two sources read</li></ul>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div class="sheet">
+              <h3>A cloze card</h3>
+              <p class="note" style="margin-top:0">The blank is the part you are meant to remember. Click the card.</p>
+              <button class="card3d" id="card" type="button" aria-label="Flashcard. Activate to turn it over.">
+                <span class="inner">
+                  <p>A body stays at rest, or keeps moving in a straight line, unless a net ____ acts on it.</p>
+                  <p>force</p>
+                </span>
+              </button>
+              <div class="grades" id="grades">
+                <button type="button">Again</button>
+                <button type="button">Hard</button>
+                <button type="button">Good</button>
+                <button type="button">Easy</button>
+              </div>
+              <p class="note" id="grade-note">Turn it over, then say how well you knew it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stats">
+      <div class="wrap">
+        <div class="prose">
+          <h2>Where the hours went</h2>
+          <p>The charts are drawn in the app, as SVG, not pulled in from a chart library. A week of bars, with your daily goal as a thin line. Time by subject. Which hours of the day you actually work. A year of small squares. A streak.</p>
+          <p>The streak can ignore one empty day each week. A day off does not reset you to zero. Today does not break it either, because the day is not over. The switch is in Settings, and it starts on.</p>
+          <p>Tap a day and you get the sessions, the rating, the note, and the three diary lines. You can edit a session or add one there. Once a week, if you want, the app adds the week up, checks the target on each subject, and leaves a plain note about next week.</p>
+          <p>The week below is made up, so you can click around. Saturday went past a 4 hour goal, which is the default daily goal. Sunday is today in this example, drawn in the second colour, the way the app marks today.</p>
+        </div>
+        <div class="sheet">
+          <h3>Last 7 days</h3>
+          <div class="chart" id="chart"></div>
+          <div class="chart-labels" id="chart-labels"></div>
+          <div class="daylog" id="daylog"></div>
+        </div>
+        <div class="split">
+          <div class="sheet">
+            <h3>By subject, this week</h3>
+            <div class="hrows" id="by-subject"></div>
+          </div>
+          <div class="sheet">
+            <h3>Hour of the day</h3>
+            <p class="note" style="margin:0">When the made-up week happened. Mornings are thin. The pile is after 4pm, which matches a planning window that starts at 5.</p>
+            <div class="hours" id="hours"></div>
+            <div class="hour-labels"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>
+          </div>
+        </div>
+        <div class="split">
+          <div class="sheet">
+            <h3>Streak</h3>
+            <p class="note" style="margin:0">Fourteen days. The hollow square is the empty day that week. One of those does not reset the streak.</p>
+            <div class="streak" id="streak" aria-hidden="true"></div>
+          </div>
+          <div class="sheet">
+            <h3>A term, one square a day</h3>
+            <p class="note" style="margin:0">The app shows a full year. This is shorter so the empty week is easy to see. Darker means more minutes.</p>
+            <div class="heat" id="heat" role="img" aria-label="Example term of study days, with one empty week"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="around">
+      <div class="wrap">
+        <div class="prose">
+          <h2>Sounds, widgets, and the rest</h2>
+          <p>Eight sounds ship inside the app. Rain, showers, ocean, a stream, forest, a campfire, a fan, and white noise. They are short recordings, cut so they loop. Nothing is streamed. The app is not allowed on the internet, so it could not stream them if it wanted to. The buttons here are a rough synthesised stand-in, so you can hear the idea. The files in the app sound better. Volume has its own slider.</p>
+          <div class="sounds" id="sounds" style="margin:8px 0 18px"></div>
+          <p>Do Not Disturb can turn on with a session and go back to how you had it when you stop. Android asks for permission to change notification policy. You can say no. The timer still works. A Pomodoro can also notify you when a block ends. That needs notification permission too. Reminders before a planned block exist, and they stay off until you turn them on. Quiet hours default to 10pm until 7am.</p>
+          <p>There are six home screen widgets. Today is a ring against the daily goal, plus the streak. Next exam is the days left. Quick start opens the timer on one subject. Week is seven bars. Cards due opens the review. Subjects shows three of them, and tapping one starts that subject. A shortcut can do the same job with a link like <span>flipside://timer?task=12</span>.</p>
+          <p>The widgets stay dark, and they stay amber, even if you change the accent inside the app. The rest of the app follows what you pick. Amber, ocean, mint, rose, or violet. Theme is dark, light, or match the phone. Text size runs from small to huge. Fonts include this one, JetBrains Mono, plus Atkinson Hyperlegible and Lexend if you want something easier to read, a serif, a rounded face, and a pixel font. The accent colours are checked for contrast in the test suite.</p>
+        </div>
+        <div class="launcher" aria-label="Example home screen widgets" style="margin-top:8px">
+          <div class="widget">
+            <div class="ring-row">
+              <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+                <circle cx="36" cy="36" r="28" fill="none" stroke="#1C1C27" stroke-width="8"/>
+                <circle cx="36" cy="36" r="28" fill="none" stroke="#FFB547" stroke-width="8" stroke-linecap="round" stroke-dasharray="74 176" transform="rotate(-90 36 36)"/>
+              </svg>
+              <div>
+                <strong>1h 40m</strong>
+                <p>12 day streak</p>
+              </div>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="k">NEXT EXAM</div>
+            <div class="n warn">6d</div>
+            <strong>Organic</strong>
+            <p>2/6 topics</p>
+          </div>
+          <div class="widget wide">
+            <div class="wrow">
+              <span class="blob"></span>
+              <div>
+                <strong>Physics</strong>
+                <p>Tap to flip-start. Today 1h 40m</p>
+              </div>
+            </div>
+          </div>
+          <div class="widget wide">
+            <strong>This week · 13h 55m</strong>
+            <div class="wbars" aria-hidden="true">
+              <i style="height:34%"></i><i style="height:54%"></i><i style="height:18%"></i><i style="height:64%"></i><i style="height:25%"></i><i style="height:100%"></i><i style="height:14%"></i>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="wrow">
+              <div class="n">14</div>
+              <div><strong>cards due</strong><p>Tap to review</p></div>
+            </div>
+          </div>
+          <div class="widget">
+            <div class="subjs">
+              <span><em style="background:#6FA8DC"></em>Physics</span>
+              <span><em style="background:#E57373"></em>Organic</span>
+              <span><em style="background:#E8A55A"></em>History</span>
+            </div>
+          </div>
+        </div>
+        <div class="prose" style="margin-top:28px">
+          <h3>Accent</h3>
+          <p>This page uses the same five. Widgets above stay amber on purpose.</p>
+          <div class="accents" id="accents" role="group" aria-label="Accent colour"></div>
+          <p>A backup is a JSON file in a folder you pick. The app writes one about once a day and keeps the newest seven. Restore is in Settings. The file has tasks, sessions, plans, the diary, exams, cards, reviews, and settings. On a new phone, copy the file over, restore, then choose the backup folder again. The old path will not exist.</p>
+          <p>The interface is in English, Hindi, Spanish, Portuguese, Indonesian, French, and German. It follows the phone language unless you pick one. The English sentence is the key in the translation table, so a fix is a straight edit.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="wrap prose">
+        <h2>It has no way to send your data anywhere</h2>
+        <p>The release build does not ask for the internet permission. Android will not let it open a connection. There is no account. There are no ads. Nothing is counted for analytics.</p>
+        <p>Sessions live in a SQLite database on the phone. You can delete all of it from Settings. Backups go only to the folder you chose. The source is public, under the MIT licence, if you want to read the permission list yourself. The permissions it does ask for are the foreground service that keeps flip detection alive, notifications, vibration, and, only if you turn it on, access to Do Not Disturb.</p>
+      </div>
+    </section>
+
+    <section id="get">
+      <div class="wrap prose">
+        <h2>Installing</h2>
+        <p>Download FlipSide.apk on the phone. Open the file. If Android asks, allow install from this source. If an older copy is already installed, uninstall that one first. The new file may refuse to replace it.</p>
+        <p><a class="btn pri" href="https://github.com/shanthoshkv/flipside/releases/latest/download/FlipSide.apk">Download FlipSide.apk</a></p>
+        <p>You can also build it. Expo Go is not enough. The widgets, the service that keeps the sensor alive, and Do Not Disturb are native code.</p>
+        <pre>npm install
+npx tsc --noEmit
+npm run check
+npx eas-cli build -p android --profile preview</pre>
+        <p><span class="note">npm run check covers the flip detector, the card scheduler, the planner, the stats, reminders, contrast, and the translations. With Android Studio installed you can also prebuild and assemble a release locally.</span></p>
+        <p>It is Expo SDK 57, TypeScript, and a short Kotlin module for Do Not Disturb. If you want to help, translations are the easiest place. They live in <span>src/locales</span>. Bug reports and changes are welcome on GitHub.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">© 2026 Shanthosh KV · All rights reserved</div>
+  </footer>
+
+  <noscript>
+    <p class="wrap note">The phone demo and the charts need JavaScript. The download link above works without it.</p>
+  </noscript>
+
+  <script>
+    (() => {
+      const $ = (s) => document.querySelector(s);
+      const root = document.documentElement;
+      const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch (e) { return null; } };
+      const pad = (n) => String(n).padStart(2, '0');
+      const fmtClock = (ms) => {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+        return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : pad(m) + ':' + pad(sec);
+      };
+      const fmtDur = (min) => min >= 60 ? Math.floor(min / 60) + 'h ' + pad(min % 60) + 'm' : min + 'm';
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const ACCENTS = {
+        Amber: ['#FFB547', '#FF6B6B', '#9A4A06'],
+        Ocean: ['#60A5FA', '#818CF8', '#1D4ED8'],
+        Mint: ['#34D399', '#2DD4BF', '#047857'],
+        Rose: ['#FB7185', '#F472B6', '#BE123C'],
+        Violet: ['#A78BFA', '#E879F9', '#6D28D9']
+      };
+      const applyAccent = (name) => {
+        const c = ACCENTS[name] || ACCENTS.Amber;
+        root.style.setProperty('--a', c[0]);
+        root.style.setProperty('--b', c[1]);
+        root.style.setProperty('--at', c[0]);
+        document.querySelectorAll('#accents button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.name === name));
+        store('accent', name);
+      };
+      $('#accents').innerHTML = Object.entries(ACCENTS).map(([n, c]) =>
+        '<button type="button" data-name="' + n + '" aria-label="' + n + '" aria-pressed="false" style="background:' + c[0] + '"></button>'
+      ).join('');
+      $('#accents').onclick = (e) => { if (e.target.dataset.name) applyAccent(e.target.dataset.name); };
+      applyAccent(store('accent') || 'Amber');
+
+      const stage = $('#stage'), cube = $('#cube'), device = $('#device');
+      if (!reduce) cube.classList.add('intro');
+      cube.addEventListener('animationend', () => cube.classList.remove('intro'));
+      let running = false, t0 = 0, tick = 0;
+      const showTime = (ms) => { $('#face-time').textContent = $('#back-time').textContent = fmtClock(ms); };
+      const setRunning = (on) => {
+        running = on;
+        cube.classList.toggle('down', on);
+        stage.classList.toggle('armed', !on);
+        stage.classList.toggle('running', on);
+        device.setAttribute('aria-pressed', on);
+        device.setAttribute('aria-label', on ? 'Pick the phone up and stop the timer' : 'Put the phone face-down and start the timer');
+      };
+      const flip = () => {
+        cube.classList.remove('intro');
+        if (!running) {
+          $('#reflect').hidden = true;
+          setRunning(true);
+          t0 = Date.now();
+          showTime(0);
+          $('#hint').textContent = 'Face-down. Press again to pick it up. Under 10 seconds would be thrown away.';
+          $('#app-hint').textContent = 'Running. The real screen looks like the other side of this phone.';
+          tick = setInterval(() => showTime(Date.now() - t0), 200);
+        } else {
+          clearInterval(tick);
+          const ms = Date.now() - t0;
+          setRunning(false);
+          showTime(0);
+          $('#app-hint').textContent = 'Choose a task, then put your phone face-down to start. Lift it to stop.';
+          if (ms < 10000) {
+            $('#hint').textContent = 'That was ' + fmtClock(ms) + '. Under 10 seconds, so Flipside would drop it.';
+            $('#reflect').hidden = true;
+          } else {
+            $('#hint').textContent = 'Lifted. Press the phone to try again.';
+            $('#reflect-time').textContent = 'You focused for ' + fmtClock(ms) + '.';
+            $('#reflect-note').textContent = 'This rating stays in the tab. The app saves it next to the session.';
+            document.querySelectorAll('#faces button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+            $('#reflect').hidden = false;
+          }
+        }
+      };
+      device.onclick = flip;
+      let picked = null;
+      $('#faces').onclick = (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        picked = b.dataset.q;
+        document.querySelectorAll('#faces button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+      };
+      $('#reflect-skip').onclick = () => { $('#reflect').hidden = true; $('#hint').textContent = 'Skipped. Press the phone to try again.'; };
+      $('#reflect-save').onclick = () => {
+        $('#reflect-note').textContent = picked ? 'Saved as ' + picked + ', in this tab only.' : 'Pick a rating, or skip it. The app lets you do either.';
+        if (picked) setTimeout(() => { $('#reflect').hidden = true; }, 700);
+      };
+
+      const NOTES = {
+        stopwatch: 'Counts up until you lift the phone.',
+        pomodoro: 'Counts down, then a break. This preview plays the whole block in a few seconds. A real 25 minutes still takes 25 minutes.',
+        flowtime: 'No fixed length. Stop when you are done. The break suggestion is about a fifth of the time, between 5 and 25 minutes.'
+      };
+      let mode = 'stopwatch', focusMin = 25, breakMin = 5, raf = 0, playing = false;
+      const clock = $('#clock'), label = $('#clock-label'), playBtn = $('#play');
+      const stopPlay = () => { playing = false; cancelAnimationFrame(raf); };
+      const renderMode = () => {
+        stopPlay();
+        document.querySelectorAll('#modes button').forEach((b) => b.setAttribute('aria-selected', b.dataset.mode === mode));
+        $('#presets').hidden = mode !== 'pomodoro';
+        $('#mode-note').textContent = NOTES[mode];
+        label.textContent = mode === 'pomodoro' ? 'Focus' : 'Physics';
+        clock.textContent = mode === 'pomodoro' ? fmtClock(focusMin * 60000) : '00:00';
+        playBtn.textContent = mode === 'pomodoro' ? 'Play the block, sped up' : 'Run it, sped up';
+      };
+      $('#modes').onclick = (e) => { if (e.target.dataset.mode) { mode = e.target.dataset.mode; renderMode(); } };
+      $('#presets').onclick = (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        focusMin = +b.dataset.focus; breakMin = +b.dataset.brk;
+        document.querySelectorAll('#presets button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+        renderMode();
+      };
+      const beep = () => {
+        try {
+          const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = 880;
+          g.gain.setValueAtTime(0.05, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+          o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.24);
+        } catch (e) {}
+      };
+      playBtn.onclick = () => {
+        if (playing && mode !== 'pomodoro') {
+          stopPlay();
+          const shown = clock.dataset.ms || 0;
+          if (mode === 'flowtime') {
+            const mins = Math.max(1, Math.round(shown / 60000));
+            const brk = Math.max(5, Math.min(25, Math.round(mins / 5)));
+            $('#mode-note').textContent = 'You focused for ' + fmtDur(mins) + '. Suggested break: ' + brk + ' min.';
+          }
+          playBtn.textContent = 'Run it, sped up';
+          return;
+        }
+        stopPlay();
+        playing = true;
+        const tStart = performance.now();
+        let beeped = false;
+        if (mode === 'pomodoro') {
+          playBtn.textContent = 'Playing…';
+          const wallF = 6500, wallB = 2200;
+          const frame = (now) => {
+            if (!playing) return;
+            const e = now - tStart;
+            if (e < wallF) {
+              label.textContent = 'Focus';
+              clock.textContent = fmtClock(focusMin * 60000 * (1 - e / wallF));
+              raf = requestAnimationFrame(frame);
+            } else if (e < wallF + wallB) {
+              if (!beeped) { beep(); beeped = true; }
+              label.textContent = 'Break';
+              clock.textContent = fmtClock(breakMin * 60000 * (1 - (e - wallF) / wallB));
+              raf = requestAnimationFrame(frame);
+            } else {
+              playing = false; label.textContent = 'Done'; clock.textContent = '00:00';
+              playBtn.textContent = 'Play the block, sped up';
+              $('#mode-note').textContent = 'Block finished. In the app the beep is softer, and the break is its own piece of the session.';
+            }
+          };
+          raf = requestAnimationFrame(frame);
+        } else {
+          playBtn.textContent = 'Stop, like lifting the phone';
+          const frame = (now) => {
+            if (!playing) return;
+            const ms = (now - tStart) * 40;
+            clock.dataset.ms = ms;
+            clock.textContent = fmtClock(ms);
+            raf = requestAnimationFrame(frame);
+          };
+          raf = requestAnimationFrame(frame);
+        }
+      };
+      renderMode();
+
+      const SUBJECTS = [
+        { id: 1, name: 'Physics', color: '#6FA8DC' },
+        { id: 2, name: 'Organic', color: '#E57373' },
+        { id: 3, name: 'History', color: '#E8A55A' }
+      ];
+      const START = 14, HOURS = 8, COLS = 6, N = HOURS * COLS;
+      const plan = new Array(N).fill(0);
+      const actual = new Array(N).fill(0);
+      const fill = (arr, h1, m1, h2, m2, id) => {
+        const a = ((h1 - START) * 60 + m1) / 10, b = ((h2 - START) * 60 + m2) / 10;
+        for (let i = a; i < b; i++) arr[i] = id;
+      };
+      fill(actual, 15, 0, 16, 20, 1);
+      fill(plan, 17, 0, 17, 50, 3);
+      fill(plan, 19, 0, 19, 50, 2);
+      let subject = 1;
+      const colorOf = (id) => (SUBJECTS.find((s) => s.id === id) || {}).color || 'transparent';
+      const kind = (i) => actual[i] ? 'a' + actual[i] : plan[i] ? 'p' + plan[i] : 'e';
+      const drawPlan = () => {
+        $('#subjs').innerHTML = SUBJECTS.map((s) =>
+          '<button type="button" data-id="' + s.id + '" aria-pressed="' + (s.id === subject) + '" style="' + (s.id === subject ? 'background:' + s.color : '') + '"><i style="background:' + s.color + '"></i>' + s.name + '</button>'
+        ).join('');
+        let html = '<div class="prow"><span class="hr"></span><span class="slots" style="display:flex">' +
+          [0, 10, 20, 30, 40, 50].map((m) => '<span style="flex:1;text-align:center;color:var(--mu);font-size:.72rem">:' + pad(m) + '</span>').join('') +
+          '</span></div>';
+        for (let h = 0; h < HOURS; h++) {
+          html += '<div class="prow"><span class="hr">' + pad(START + h) + ':00</span><span class="slots">';
+          for (let c = 0; c < COLS; c++) {
+            const i = h * COLS + c, k = kind(i);
+            const joinL = c > 0 && k !== 'e' && kind(i - 1) === k;
+            const joinR = c < COLS - 1 && k !== 'e' && kind(i + 1) === k;
+            const id = actual[i] || plan[i];
+            const cls = ['slot', actual[i] ? 'done' : '', plan[i] && !actual[i] ? 'plan' : '', actual[i] && plan[i] ? 'both' : '', joinL ? 'join-l' : '', joinR ? 'join-r' : ''].filter(Boolean).join(' ');
+            const hm = pad(START + h) + ':' + pad(c * 10);
+            html += '<button type="button" class="' + cls + '" data-i="' + i + '" style="--c:' + colorOf(id) + '" aria-label="' + hm + (actual[i] ? ', focused' : plan[i] ? ', planned' : ', empty') + '"></button>';
+          }
+          html += '</span></div>';
+        }
+        $('#grid').innerHTML = html;
+        const f = actual.filter(Boolean).length * 10, p = plan.filter(Boolean).length * 10;
+        $('#plan-count').textContent = fmtDur(f) + ' focused, ' + fmtDur(p) + ' planned';
+      };
+      $('#subjs').onclick = (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        subject = +b.dataset.id;
+        drawPlan();
+      };
+      let dragging = false, paintOn = true, last = -1;
+      const paintAt = (i) => {
+        if (i === last || i < 0 || i >= N) return;
+        last = i;
+        if (paintOn) plan[i] = subject;
+        else if (plan[i] === subject) plan[i] = 0;
+        drawPlan();
+      };
+      $('#grid').addEventListener('pointerdown', (e) => {
+        const b = e.target.closest('.slot');
+        if (!b) return;
+        dragging = true; last = -1;
+        paintOn = plan[+b.dataset.i] !== subject;
+        $('#grid').setPointerCapture(e.pointerId);
+        paintAt(+b.dataset.i);
+      });
+      $('#grid').addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const b = el && el.closest && el.closest('.slot');
+        if (b) paintAt(+b.dataset.i);
+      });
+      $('#grid').addEventListener('pointerup', () => { dragging = false; last = -1; });
+      $('#grid').addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const b = e.target.closest('.slot');
+        if (!b) return;
+        e.preventDefault();
+        last = -1;
+        paintOn = plan[+b.dataset.i] !== subject;
+        paintAt(+b.dataset.i);
+      });
+      $('#auto').onclick = () => {
+        const order = [1, 2, 3];
+        let left = 0, si = -1;
+        const from = (17 - START) * COLS, to = (22 - START) * COLS;
+        for (let i = from; i < to && i < N; i++) {
+          if (plan[i] || actual[i]) { left = 0; continue; }
+          if (left === 0) { left = 5; si++; }
+          plan[i] = order[si % 3];
+          left--;
+        }
+        drawPlan();
+      };
+      $('#clear').onclick = () => { plan.fill(0); drawPlan(); };
+      drawPlan();
+
+      const card = $('#card');
+      card.onclick = () => {
+        const on = card.classList.toggle('flipped');
+        $('#grade-note').textContent = on ? 'How well did you know it?' : 'Turn it over, then say how well you knew it.';
+      };
+      const WHEN = { Again: '10 minutes', Hard: '1 day', Good: '4 days', Easy: '9 days' };
+      $('#grades').onclick = (e) => {
+        if (e.target.tagName !== 'BUTTON') return;
+        card.classList.remove('flipped');
+        $('#grade-note').textContent = 'Example only. Scheduled again in ' + WHEN[e.target.textContent] + '. Real gaps come from FSRS or SM-2, and from how you have rated this card before.';
+      };
+
+      const WEEK = [
+        { n: 'Mon', m: 95, items: ['09:10 – 10:20 · Physics · focus 4/5 Good', 'Newton, up to friction.'] },
+        { n: 'Tue', m: 150, items: ['16:00 – 18:30 · Organic · focus 3/5 Okay', 'Naming, then a walk.'] },
+        { n: 'Wed', m: 40, items: ['19:00 – 19:40 · History · focus 2/5 Meh', 'One source. Stopped early.'] },
+        { n: 'Thu', m: 180, items: ['17:00 – 20:00 · Physics · focus 5/5 Deep', 'Problems, no phone.'] },
+        { n: 'Fri', m: 70, items: ['18:10 – 19:20 · Organic · added by hand', 'Forgot to flip. Wrote it in later.'] },
+        { n: 'Sat', m: 280, items: ['14:00 – 18:40 · Physics · focus 4/5 Good', 'Past the 4 hour goal.'] },
+        { n: 'Sun', m: 20, hot: true, items: ['Today, 20 minutes so far.', 'Organic, naming review. The day is not over.'] }
+      ];
+      const goal = 240, max = Math.max(goal, ...WEEK.map((d) => d.m));
+      $('#chart').innerHTML = '<div class="goal" style="bottom:' + (goal / max * 100) + '%"></div>' +
+        WEEK.map((d, i) => '<button type="button" data-i="' + i + '" class="' + (d.hot ? 'hot' : '') + '" style="height:' + Math.max(4, Math.round(d.m / max * 156)) + 'px" aria-label="' + d.n + ', ' + fmtDur(d.m) + '"></button>').join('');
+      $('#chart-labels').innerHTML = WEEK.map((d) => '<span>' + d.n + '</span>').join('');
+      const showDay = (i) => {
+        document.querySelectorAll('#chart button').forEach((b) => b.setAttribute('aria-current', b.dataset.i === String(i)));
+        const d = WEEK[i];
+        $('#daylog').innerHTML = '<strong>' + d.n + ' · ' + fmtDur(d.m) + '</strong><ul class="daylog">' +
+          d.items.map((t) => '<li>' + t + '</li>').join('') + '</ul>';
+      };
+      $('#chart').onclick = (e) => { const b = e.target.closest('button'); if (b) showDay(+b.dataset.i); };
+      showDay(6);
+      const subs = [['Physics', 555, '#6FA8DC'], ['Organic', 240, '#E57373'], ['History', 40, '#E8A55A']];
+      const subMax = 555;
+      $('#by-subject').innerHTML = subs.map(([n, m, c]) =>
+        '<div class="hrow"><span>' + n + '</span><b style="width:' + (m / subMax * 100) + '%;background:' + c + '"></b><span>' + fmtDur(m) + '</span></div>'
+      ).join('');
+      const HRS = [0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 2, 1, 1, 1, 2, 3, 6, 8, 9, 7, 5, 3, 1, 0];
+      const hMax = Math.max(...HRS);
+      $('#hours').innerHTML = HRS.map((v) => '<i style="height:' + Math.max(2, Math.round(v / hMax * 72)) + 'px"></i>').join('');
+      const streak = [1, 1, 1, 1, 1, 'rest', 1, 1, 1, 1, 1, 1, 1, 1];
+      $('#streak').innerHTML = streak.map((v) => '<i class="' + (v === 'rest' ? 'rest' : v ? '' : 'off') + '"></i>').join('');
+      const heat = $('#heat');
+      let cells = '';
+      for (let w = 0; w < 18; w++) for (let d = 0; d < 7; d++) {
+        let l = 0;
+        if (w !== 8) l = d >= 5 ? ((w + d) % 3 === 0 ? 1 : 0) : [2, 3, 1, 4, 2, 3, 2][(w * 3 + d) % 7];
+        cells += '<i data-l="' + l + '"></i>';
+      }
+      heat.innerHTML = cells;
+
+      const SOUNDS = [['Rain', 1800], ['Showers', 900], ['Ocean', 500], ['Stream', 2400], ['Forest', 1400], ['Campfire', 700], ['Fan', 280], ['White noise', 8000]];
+      $('#sounds').innerHTML = SOUNDS.map(([n]) => '<button type="button" aria-pressed="false">' + n + '</button>').join('');
+      let actx, noise, playingSound = -1;
+      $('#sounds').onclick = (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        const i = [...$('#sounds').children].indexOf(b);
+        if (noise) { noise.stop(); noise = null; }
+        document.querySelectorAll('#sounds button').forEach((x) => x.setAttribute('aria-pressed', 'false'));
+        if (playingSound === i) { playingSound = -1; return; }
+        playingSound = i;
+        try {
+          actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+          const buf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+          noise = actx.createBufferSource();
+          noise.buffer = buf; noise.loop = true;
+          const f = actx.createBiquadFilter();
+          f.type = i === 7 ? 'highpass' : 'lowpass';
+          f.frequency.value = SOUNDS[i][1];
+          const g = actx.createGain(); g.gain.value = 0.08;
+          noise.connect(f).connect(g).connect(actx.destination);
+          noise.start();
+          b.setAttribute('aria-pressed', 'true');
+        } catch (err) { playingSound = -1; }
+      };
+
+      const links = [...document.querySelectorAll('.links a')];
+      const sections = links.map((a) => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+      const spy = () => {
+        const line = window.scrollY + 120;
+        let current = null;
+        for (const s of sections) if (s.offsetTop <= line) current = s;
+        links.forEach((a) => {
+          if (current && a.getAttribute('href') === '#' + current.id) a.setAttribute('aria-current', 'true');
+          else a.removeAttribute('aria-current');
+        });
+      };
+      document.addEventListener('scroll', spy, { passive: true });
+      spy();
+    })();
+  </script>
+</body>
+</html>
