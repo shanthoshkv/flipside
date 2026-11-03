@@ -56,7 +56,7 @@ function Review() {
   const Pic = ({ uri }: { uri: string | null }) => (uri ? <Image source={{ uri }} contentFit="contain" style={{ width: '100%', height: 200 }} accessibilityLabel="Card image" /> : null);
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(2), paddingBottom: bottom + space(3), paddingHorizontal: space(4), gap: space(4) }}>
+    <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(5), paddingBottom: bottom + space(3), paddingHorizontal: space(4), gap: space(5) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={{ minHeight: 48, justifyContent: 'center' }}><Txt v="h3" c={t.accentText}>‹ Back</Txt></Pressable>
         <Pressable accessibilityRole="switch" accessibilityState={{ checked: cfg.flipReveal }} onPress={() => { tap(); cfg.set('flipReveal', !cfg.flipReveal); }} style={{ minHeight: 48, justifyContent: 'center' }}>
@@ -71,7 +71,7 @@ function Review() {
             <View style={{ width: `${(stats.current.done / Math.max(1, stats.current.done + queue.length)) * 100}%`, height: 6, borderRadius: 3, backgroundColor: t.accentA }} />
           </View>
           <Pressable disabled={show} onPress={() => { tap(); setShow(true); }} style={{ flex: 1, backgroundColor: t.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: t.border }}>
-            <ScrollView contentContainerStyle={{ flexGrow: 1, padding: space(5), justifyContent: 'center', gap: space(4) }}>
+            <ScrollView contentContainerStyle={{ flexGrow: 1, padding: space(5), justifyContent: 'center', gap: space(5) }}>
               {!!label(cur) && <Txt v="label" raw style={{ textAlign: 'center' }}>{label(cur)}</Txt>}
               <Pic uri={cur.front_img} />
               {!!cur.front && <Txt raw style={{ fontFamily: font.head, fontSize: 26, textAlign: 'center' }}>{cur.front}</Txt>}

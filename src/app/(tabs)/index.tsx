@@ -79,7 +79,7 @@ function TimerScreen() {
   const wGoal = weeklyGoal(cfg) * 60000;
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(2) }}>
+    <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(5) }}>
       <ScrollView contentContainerStyle={{ paddingBottom: space(6), gap: space(5) }}>
         <View style={{ paddingHorizontal: space(4) }}><Txt v="h1">Flipside</Txt></View>
 

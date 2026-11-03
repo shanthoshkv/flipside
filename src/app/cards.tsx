@@ -71,7 +71,7 @@ function Cards() {
   const go = (task?: number) => router.push(task === undefined ? '/review' : { pathname: '/review', params: { task: String(task) } });
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(8), gap: space(4) }}>
+    <ScrollView style={{ backgroundColor: t.bg }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: top + space(5), paddingBottom: space(8), gap: space(5) }}>
       <View style={{ paddingHorizontal: space(4), gap: space(1) }}>
         <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={{ minHeight: 48, justifyContent: 'center' }}><Txt v="h3" c={t.accentText}>‹ Back</Txt></Pressable>
         <Txt v="h1">Flashcards</Txt>

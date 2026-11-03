@@ -8,7 +8,7 @@ export type Theme = typeof dark & { isDark: boolean };
 
 export const categoryColors = ['#E8A55A', '#E57373', '#D98AB5', '#9B8CE0', '#6FA8DC', '#5CC1B0', '#86C06C', '#C9B458'];
 export const space = (n: number) => n * 4;
-export const radius = { sm: 12, md: 16, lg: 24, pill: 999 };
+export const radius = { sm: 10, md: 14, lg: 20, pill: 999 };
 
 /** Mutated in place when the font preference changes; components re-render because useTheme() subscribes to it. */
 export const font: FontSet = { ...FONT_SETS.default };

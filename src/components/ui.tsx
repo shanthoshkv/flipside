@@ -1,8 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, Text, View, type LayoutChangeEvent, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { tr } from '../i18n';
 import { useSettings } from '../store';
 import { font, radius, space, useTheme } from '../theme';
@@ -10,8 +9,8 @@ import { font, radius, space, useTheme } from '../theme';
 export function Card({ children, style, i = 0 }: { children: ReactNode; style?: StyleProp<ViewStyle>; i?: number }) {
   const t = useTheme();
   return (
-    <Animated.View entering={FadeInDown.delay(i * 60).springify().damping(18)}
-      style={[{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(4), borderWidth: 1, borderColor: t.border }, style]}>
+    <Animated.View entering={FadeIn.delay(i * 30).duration(220)}
+      style={[{ backgroundColor: t.surface, borderRadius: radius.lg, padding: space(4) }, style]}>
       {children}
     </Animated.View>
   );
@@ -20,11 +19,13 @@ export function Card({ children, style, i = 0 }: { children: ReactNode; style?: 
 export function Txt({ v = 'body', c, style, raw, ...p }: TextProps & { v?: 'h1' | 'h2' | 'h3' | 'body' | 'small' | 'label'; c?: string; raw?: boolean }) {
   const t = useTheme(), scale = useSettings((s) => s.textScale);
   const base = {
-    h1: { fontFamily: font.headBold, fontSize: 28 }, h2: { fontFamily: font.head, fontSize: 20 }, h3: { fontFamily: font.head, fontSize: 16 },
-    body: { fontFamily: font.body, fontSize: 15 }, small: { fontFamily: font.body, fontSize: 12.5 },
-    label: { fontFamily: font.bodyBold, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' as const },
+    h1: { fontFamily: font.headBold, fontSize: 32, letterSpacing: -0.6, lineHeight: 38 }, h2: { fontFamily: font.head, fontSize: 21, letterSpacing: -0.3 },
+    h3: { fontFamily: font.head, fontSize: 16, letterSpacing: -0.2 }, body: { fontFamily: font.body, fontSize: 16, lineHeight: 22 },
+    small: { fontFamily: font.body, fontSize: 13, lineHeight: 18 },
+    label: { fontFamily: font.bodyMed, fontSize: 13, letterSpacing: 0.3, textTransform: 'uppercase' as const },
   }[v];
   base.fontSize = Math.round(base.fontSize * scale);
+  if ('lineHeight' in base && base.lineHeight) base.lineHeight = Math.round(base.lineHeight * scale);
   return <Text {...p} children={typeof p.children === 'string' && !raw ? tr(p.children) : p.children} style={[base, { color: c ?? (v === 'small' || v === 'label' ? t.muted : t.text) }, style]} />;
 }
 
@@ -35,16 +36,15 @@ export function Btn({ label, onPress, kind = 'primary', style, disabled }: {
 }) {
   const t = useTheme();
   const inner = (
-    <Text style={{ fontFamily: font.head, fontSize: 16, color: kind === 'primary' ? '#1A1206' : kind === 'danger' ? t.danger : t.text }}>{tr(label)}</Text>
+    <Text style={{ fontFamily: font.bodyBold, fontSize: 17, letterSpacing: -0.2, color: kind === 'primary' ? '#1A1206' : kind === 'danger' ? t.danger : t.text }}>{tr(label)}</Text>
   );
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={tr(label)} disabled={disabled}
-      onPress={() => { tap(); onPress(); }} style={({ pressed }) => [{ opacity: disabled ? 0.4 : pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }, style]}>
+      onPress={() => { tap(); onPress(); }} style={({ pressed }) => [{ opacity: disabled ? 0.35 : pressed ? 0.7 : 1 }, style]}>
       {kind === 'primary' ? (
-        <LinearGradient colors={[t.accentA, t.accentB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space(6) }}>{inner}</LinearGradient>
+        <View style={{ minHeight: 50, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space(6), backgroundColor: t.accentA }}>{inner}</View>
       ) : (
-        <View style={{ minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space(6), backgroundColor: t.surface2 }}>{inner}</View>
+        <View style={{ minHeight: 50, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space(6), backgroundColor: t.surface2 }}>{inner}</View>
       )}
     </Pressable>
   );

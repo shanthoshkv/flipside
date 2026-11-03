@@ -110,7 +110,7 @@ function Plan() {
   const commitDiary = () => saveDiary({ date, l1: diary[0], l2: diary[1], l3: diary[2] });
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(6), gap: space(4) }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(5), paddingBottom: space(6), gap: space(5) }} keyboardShouldPersistTaps="handled">
       <Txt v="h1" style={{ paddingHorizontal: space(4) }}>Plan</Txt>
 
       <ScrollView ref={stripRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space(2), paddingHorizontal: space(4) }}>

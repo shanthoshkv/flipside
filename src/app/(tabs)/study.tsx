@@ -50,7 +50,7 @@ function Study() {
   const input = { minHeight: 48, borderRadius: radius.sm, backgroundColor: t.surface2, color: t.text, paddingHorizontal: space(4), fontFamily: font.body, fontSize: 15 };
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(6), gap: space(4) }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(5), paddingBottom: space(6), gap: space(5) }} keyboardShouldPersistTaps="handled">
       <Txt v="h1" style={{ paddingHorizontal: space(4) }}>Study</Txt>
 
       <Card style={[pad, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space(3) }]}>

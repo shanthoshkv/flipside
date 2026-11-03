@@ -33,7 +33,7 @@ function Search() {
   }, [q, tasks, sessions, cards, exams]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(2), paddingHorizontal: space(4), gap: space(3) }}>
+    <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: top + space(5), paddingHorizontal: space(4), gap: space(3) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
         <Pressable accessibilityLabel="Back" onPress={() => router.back()} style={{ minHeight: 48, justifyContent: 'center' }}><Txt v="h3" c={t.accentText}>‹ Back</Txt></Pressable>
         <TextInput autoFocus value={q} onChangeText={setQ} placeholder={tr('Search subjects, notes, cards, exams')} placeholderTextColor={t.muted} accessibilityLabel={tr('Search')}

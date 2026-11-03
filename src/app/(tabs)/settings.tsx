@@ -59,7 +59,7 @@ function Settings() {
   );
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(8), gap: space(4) }}>
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(5), paddingBottom: space(8), gap: space(5) }}>
       <Txt v="h1" style={{ paddingHorizontal: space(4) }}>Settings</Txt>
 
       <Card style={pad}>

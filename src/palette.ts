@@ -1,14 +1,14 @@
 export const dark = {
-  bg: '#0B0B10', surface: '#14141C', surface2: '#1C1C27', text: '#F4F4F8', muted: '#8B8BA0',
-  border: 'rgba(255,255,255,0.06)', accentA: '#FFB547', accentB: '#FF6B6B', accentText: '#FFB547', danger: '#FF6B6B', success: '#4ADE80', dotOff: '#262633',
+  bg: '#0D0D0F', surface: '#1C1C1E', surface2: '#2C2C2E', text: '#F5F5F7', muted: '#98989F',
+  border: 'rgba(84,84,88,0.45)', accentA: '#FFB547', accentB: '#FF6B6B', accentText: '#FFB547', danger: '#FF6B6B', success: '#4ADE80', dotOff: '#3A3A3C',
 };
 export const light: typeof dark = {
-  bg: '#FAF8F5', surface: '#FFFFFF', surface2: '#F0EDE8', text: '#14141C', muted: '#5F5F72',
-  border: 'rgba(0,0,0,0.07)', accentA: '#F59E0B', accentB: '#EF5350', accentText: '#9A4A06', danger: '#C62828', success: '#16A34A', dotOff: '#D9D4CC',
+  bg: '#F2F2F7', surface: '#FFFFFF', surface2: '#EBEBF0', text: '#1C1C1E', muted: '#636366',
+  border: 'rgba(60,60,67,0.18)', accentA: '#F59E0B', accentB: '#EF5350', accentText: '#9A4A06', danger: '#C62828', success: '#16A34A', dotOff: '#D1D1D6',
 };
 
 /** AMOLED: true black background, same text colours as dark */
-export const black: typeof dark = { ...dark, bg: '#000000', surface: '#0B0B10', surface2: '#16161F', dotOff: '#1E1E28' };
+export const black: typeof dark = { ...dark, bg: '#000000', surface: '#141416', surface2: '#232326', dotOff: '#2C2C2E' };
 
 const lum = (hex: string) => {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));

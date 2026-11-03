@@ -87,7 +87,7 @@ function Stats() {
   ];
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(2), paddingBottom: space(6), gap: space(4) }}>
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: top + space(5), paddingBottom: space(6), gap: space(5) }}>
       <View style={{ paddingHorizontal: space(4), flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
         <Txt v="h1" style={{ flex: 1 }}>Stats</Txt>
         <Btn kind="ghost" label="Search" onPress={() => router.push('/search')} />
