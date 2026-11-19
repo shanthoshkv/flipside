@@ -15,7 +15,7 @@ import { focusScore, hourWeekGrid, movingAvg, periodSummary, scoreTrend } from '
 import { cardsTsv, parseCardsText, parseCsv, parseSessionsCsv, reportMd, sessionsCsv, sessionsIcs } from '../src/exportfmt.ts';
 import { readFileSync } from 'node:fs';
 import { busySlots, parseIcs } from '../src/ics.ts';
-import { breakLen } from '../src/presets.ts';
+import { allPresets, breakLen } from '../src/presets.ts';
 
 // flip start after 1s flat face-down, then stop on lift
 const d = new Detector(THRESH.medium);
@@ -239,5 +239,17 @@ assert.ok(/blockedPermissions:[^\]]*'android\.permission\.INTERNET'/.test(readFi
   const c = { breakMin: 5, longBreakMin: 15, longEvery: 4 };
   assert.deepEqual([1, 2, 3, 4, 8].map((n) => breakLen(c, n)), [5, 5, 5, 15, 15]);
   assert.equal(breakLen({ ...c, longEvery: 0 }, 4), 5, 'long break off');
+  const builtIns = [
+    { label: '25 / 5', focus: 25, brk: 5 },
+    { label: '50 / 10', focus: 50, brk: 10 },
+    { label: '52 / 17', focus: 52, brk: 17 },
+    { label: '90 / 20', focus: 90, brk: 20 },
+  ];
+  assert.deepEqual(allPresets([]), builtIns, 'built-in presets are returned in order');
+  assert.deepEqual(
+    allPresets([{ focus: 30, brk: 5 }]),
+    [...builtIns, { label: '30 / 5', focus: 30, brk: 5, mine: true }],
+    'custom presets are appended and marked as mine',
+  );
 }
 console.log('pass');
